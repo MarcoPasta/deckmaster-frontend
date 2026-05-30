@@ -28,6 +28,6 @@ dist-ssr
 
 # Project
 .env
-.env.production
+.env.staging
 .dockerignore
 Dockerfile
