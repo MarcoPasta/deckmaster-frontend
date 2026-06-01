@@ -10,7 +10,7 @@ import type { NarutoCard, PokemonCard } from "../interfaces/interfaces";
 type AnyCard = PokemonCard | NarutoCard;
 
 const { selectedTcg } = useTcgState();
-const { get, put, del } = useApi();
+const { get, patch, del } = useApi();
 const pokemon = usePokemonBuilder();
 const naruto = useNarutoBuilder();
 
@@ -116,47 +116,90 @@ function onImageChange(event: Event) {
   imagePreview.value = URL.createObjectURL(file);
 }
 
+function formatRequestBody(
+  data: Record<string, unknown>,
+): PokemonCard | NarutoCard | undefined {
+  const body = { ...data };
+  let pCard: PokemonCard = {} as PokemonCard;
+  let nCard: NarutoCard = {} as NarutoCard;
+  if (selectedTcg.value === "pokemon") {
+    pCard.Name = String(body.Name ?? "");
+    pCard.CardType = String(body.CardType ?? "");
+    pCard.Phase = String(body.Phase ?? "");
+    pCard.Kp = Number(body.Kp ?? 0);
+    pCard.EnergyType = String(body.EnergyType ?? "");
+    pCard.Ability = String(body.Ability ?? "");
+    pCard.Weakness = String(body.Weakness ?? "");
+    pCard.Resistance = String(body.Resistance ?? "");
+    pCard.RetreatCost = Number(body.RetreatCost ?? 0);
+    pCard.CardNumber = String(body.CardNumber ?? "");
+    pCard.Code = String(body.Code ?? "");
+    pCard.Set = String(body.Set ?? "");
+    try {
+      pCard.Attacks = JSON.parse(attacksJson.value);
+    } catch (e) {
+      console.error("Invalid JSON for Attacks:", e);
+    }
+    return pCard;
+  }
+  if (selectedTcg.value === "naruto") {
+    nCard.name = String(body.name ?? "");
+    nCard.description = String(body.description ?? "");
+    nCard.cost = Number(body.cost ?? 0);
+    nCard.power = Number(body.power ?? 0);
+    nCard.keyword = String(body.keyword ?? "");
+    nCard.group = String(body.group ?? "");
+    nCard.effect = String(body.effect ?? "");
+    nCard.rarity = String(body.rarity ?? "");
+    nCard.card_number = String(body.card_number ?? "");
+    nCard.set = String(body.set ?? "");
+    try {
+      nCard.effect_types = JSON.parse(effectTypesJson.value);
+    } catch (e) {
+      console.error("Invalid JSON for Effect Types:", e);
+    }
+    return nCard;
+  }
+}
+
 async function saveCard() {
   if (!selectedCard.value) return;
   saving.value = true;
   try {
-    const body = { ...editForm.value };
+    const body = formatRequestBody(editForm.value);
     if (selectedTcg.value === "pokemon") {
       const id = (selectedCard.value as PokemonCard).ID;
-      try {
-        body.Attacks = JSON.parse(attacksJson.value);
-      } catch {}
-      try {
-        body.AttacksEN = JSON.parse(attacksEnJson.value);
-      } catch {}
-      await put(`/admin/pokemon/card/${id}`, body);
+      await patch(`/admin/pokemon/card/${id}`, body);
       if (imageFile.value) {
         const card = selectedCard.value as PokemonCard;
         const objectKey = `cards/pokemon/${card.Code}_${card.CardNumber}.png`;
-        const { url } = await get<{ url: string }>('/admin/bucket/presign-put', { key: objectKey });
+        const { url } = await get<{ url: string }>(
+          "/admin/bucket/presign-put",
+          { key: objectKey },
+        );
         await fetch(url, {
-          method: 'PUT',
+          method: "PATCH",
           body: imageFile.value,
-          headers: { 'Content-Type': imageFile.value.type },
+          headers: { "Content-Type": imageFile.value.type },
         });
       }
       const idx = pokemon.allCards.value.findIndex((c) => c.ID === id);
       if (idx !== -1) Object.assign(pokemon.allCards.value[idx], body);
     } else {
       const id = (selectedCard.value as NarutoCard).ID;
-      try {
-        body.effect_types = JSON.parse(effectTypesJson.value);
-      } catch {}
-      await put(`/admin/naruto/cards/${id}`, body);
+      await patch(`/admin/naruto/cards/${id}`, body);
       if (imageFile.value) {
         const card = selectedCard.value as NarutoCard;
         const paddedNumber = card.card_number.padStart(3, "0");
         const objectKey = `cards/naruto/ks_${paddedNumber}_${card.rarity}.webp`;
-        const { url } = await get<{ url: string }>('/admin/bucket/presign-put', { key: objectKey });
+        const { url } = await get<{ url: string }>(
+          "/admin/bucket/presign-put",
+          { key: objectKey },
+        );
         await fetch(url, {
-          method: 'PUT',
+          method: "PATCH",
           body: imageFile.value,
-          headers: { 'Content-Type': imageFile.value.type },
+          headers: { "Content-Type": imageFile.value.type },
         });
       }
       const idx = naruto.allCards.value.findIndex((c) => c.ID === id);
@@ -389,7 +432,9 @@ watch(selectedTcg, () => {
               class="json-field"
               font-family="mono"
             />
-            <v-textarea
+
+            <!-- replace with tags -->
+            <!-- <v-textarea
               v-model="attacksEnJson"
               label="Attacks EN (JSON)"
               variant="outlined"
@@ -397,7 +442,7 @@ watch(selectedTcg, () => {
               rows="4"
               hide-details
               class="json-field"
-            />
+            /> -->
           </template>
           <template v-else-if="selectedTcg === 'naruto'">
             <v-textarea
