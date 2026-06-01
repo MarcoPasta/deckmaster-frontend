@@ -3,7 +3,7 @@ import type { PokemonCard, PokemonDecks } from "../../interfaces/interfaces";
 import { useApi } from "../useApi";
 
 export function usePokemonDecks(userId: () => string | undefined) {
-  const { get } = useApi();
+  const { get, del } = useApi();
   const decks = ref<PokemonDecks[]>([]);
   const imageUrls = ref<Record<string, string>>({});
 
@@ -105,8 +105,13 @@ export function usePokemonDecks(userId: () => string | undefined) {
     return lines.join("\n").trim();
   }
 
-  function deleteDeckLocal(deckId: number) {
+  async function deleteDeckLocal(deckId: number) {
     decks.value = decks.value.filter((d) => d.ID !== deckId);
+    try {
+      await del(`/auth/pokemon/decks/${deckId}/delete`);
+    } catch (e) {
+      console.error("Failed to delete deck:", e);
+    }
   }
 
   return {

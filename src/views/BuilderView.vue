@@ -197,11 +197,23 @@ async function saveDeck() {
         chosenCards.value as NarutoCard[],
       );
     } else {
-      await pokemon.saveDeck(
-        user.value!.id,
-        deckName.value.trim(),
-        chosenCards.value as PokemonCard[],
-      );
+      if (sessionStorage.getItem(STORAGE_ID_KEY) !== "") {
+        console.log(
+          "Updating existing deck with ID",
+          sessionStorage.getItem(STORAGE_ID_KEY),
+        );
+        await pokemon.updateDeck(
+          Number(sessionStorage.getItem(STORAGE_ID_KEY)),
+          deckName.value.trim(),
+          chosenCards.value as PokemonCard[],
+        );
+      } else {
+        await pokemon.saveDeck(
+          user.value!.id,
+          deckName.value.trim(),
+          chosenCards.value as PokemonCard[],
+        );
+      }
     }
     chosenCards.value = [];
     deckName.value = "";
@@ -268,7 +280,10 @@ const itemSize = ref(120);
 function computeItemSize() {
   if (!cardGridEl.value) return;
   const containerWidth = cardGridEl.value.clientWidth;
-  const cols = Math.max(3, Math.floor((containerWidth + COL_GAP) / (TARGET_CARD_WIDTH + COL_GAP)));
+  const cols = Math.max(
+    3,
+    Math.floor((containerWidth + COL_GAP) / (TARGET_CARD_WIDTH + COL_GAP)),
+  );
   columnCount.value = cols;
   const colWidth = (containerWidth - COL_GAP * (cols - 1)) / cols;
   itemSize.value = colWidth * (7 / 5) + ROW_GAP;
@@ -383,7 +398,11 @@ function onDrawerTouchEnd() {
     <!-- Deck panel (top on narrow, right on wide) -->
     <div
       class="builder-panel deck-panel"
-      :style="isMobile ? { transform: `translateY(calc(100% - ${drawerOffset}px))` } : undefined"
+      :style="
+        isMobile
+          ? { transform: `translateY(calc(100% - ${drawerOffset}px))` }
+          : undefined
+      "
     >
       <div
         v-if="isMobile"
@@ -555,7 +574,9 @@ function onDrawerTouchEnd() {
                 v-if="getCardAtPosition(virtualRow.index, col - 1)"
                 :class="[
                   'card-slot',
-                  bouncingCard === cardKey(getCardAtPosition(virtualRow.index, col - 1)!) && 'card-bounce-active',
+                  bouncingCard ===
+                    cardKey(getCardAtPosition(virtualRow.index, col - 1)!) &&
+                    'card-bounce-active',
                 ]"
                 @click="addCard(getCardAtPosition(virtualRow.index, col - 1)!)"
                 @mouseenter="
