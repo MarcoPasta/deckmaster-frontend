@@ -38,16 +38,33 @@ export function useNarutoDecks(userId: () => string | undefined) {
     { immediate: true },
   );
 
+  function formatCardNumber(card: NarutoCard): string {
+    if (!card.card_number || !card.rarity) return "";
+
+    const number = parseInt(card.card_number, 10);
+    if (isNaN(number)) return "";
+
+    switch (true) {
+      case number < 10:
+        return "00" + number;
+      case number < 100:
+        return "0" + number;
+      default:
+        return number.toString();
+    }
+  }
+
   function getPreviewImage(deck: NarutoDecks): string {
     const entry = deck.entries?.[0];
     if (!entry?.card?.card_number || !entry?.card?.rarity) return "";
-    const key = `cards/naruto/${entry.card.card_number}_${entry.card.rarity}.webp`;
+    const key = `cards/naruto/${entry.card.set}_${formatCardNumber(entry.card)}_${entry.card.rarity}.webp`;
+    console.log(key);
     return imageUrls.value[key] || "";
   }
 
   function getCardImage(card: NarutoCard): string {
     if (!card.card_number || !card.rarity) return "";
-    const key = `cards/naruto/${card.card_number}_${card.rarity}.webp`;
+    const key = `cards/naruto/${card.set}_${formatCardNumber(card)}_${card.rarity}.webp`;
     return imageUrls.value[key] || "";
   }
 

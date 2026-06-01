@@ -33,12 +33,12 @@ export function useNarutoBuilder() {
       card.rarity === "MSS"
         ? card.card_number
         : card.card_number.padStart(3, "0");
-    const key = `cards/naruto/ks_${number}_${card.rarity}.webp`;
+    const key = `cards/naruto/${card.set}_${number}_${card.rarity}.webp`;
     return imageUrls.value[key] || "";
   }
 
   function cardKey(card: NarutoCard): string {
-    return `${card.card_number}_${card.rarity}`;
+    return `${card.set}_${card.card_number}_${card.rarity}`;
   }
 
   function filterCards(
