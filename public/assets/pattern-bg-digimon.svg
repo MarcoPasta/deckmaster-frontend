@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0f1a2e" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#0a1120" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="600" height="600" fill="#0a1120"/>
+
+  <!-- Subtle center gradient -->
+  <rect width="600" height="600" fill="url(#centerGlow)"/>
+
+  <!--
+    Hexagons with digital/cyber blue theme.
+    Wrapping copies offset by ±600 for seamless tiling.
+  -->
+
+  <!-- Hexagon A: center (115, 218), large -->
+  <polygon points="10,160 115,100 220,160 220,280 115,340 10,280" fill="none" stroke="#1a4a6e" stroke-width="1.5" opacity="0.8"/>
+
+  <!-- Hexagon B: center (445, 128), large -->
+  <polygon points="340,68 445,8 550,68 550,188 445,248 340,188" fill="none" stroke="#1a4a6e" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Hexagon C: center (500, 363), large -->
+  <polygon points="395,303 500,243 605,303 605,423 500,483 395,423" fill="none" stroke="#1a4a6e" stroke-width="1.5" opacity="0.7"/>
+  <!-- Wrap right edge to left -->
+  <polygon points="-205,303 -100,243 5,303 5,423 -100,483 -205,423" fill="none" stroke="#1a4a6e" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Hexagon D: center (240, 530), medium, crosses bottom -->
+  <polygon points="155,480 240,430 325,480 325,580 240,630 155,580" fill="none" stroke="#143a5c" stroke-width="1.2" opacity="0.7"/>
+  <!-- Wrapped to top -->
+  <polygon points="155,-120 240,-170 325,-120 325,-20 240,30 155,-20" fill="none" stroke="#143a5c" stroke-width="1.2" opacity="0.7"/>
+
+  <!-- Hexagon E: center (90, 438), small-medium -->
+  <polygon points="30,400 90,365 150,400 150,476 90,511 30,476" fill="none" stroke="#1a4a6e" stroke-width="1" opacity="0.65"/>
+
+  <!-- Hexagon F: center (530, 563), small-medium, crosses bottom -->
+  <polygon points="470,525 530,490 590,525 590,601 530,636 470,601" fill="none" stroke="#1a4a6e" stroke-width="1" opacity="0.6"/>
+  <!-- Wrapped to top -->
+  <polygon points="470,-75 530,-110 590,-75 590,1 530,36 470,1" fill="none" stroke="#1a4a6e" stroke-width="1" opacity="0.6"/>
+
+  <!-- Hexagon G: center (170, 123), small-medium -->
+  <polygon points="110,85 170,50 230,85 230,161 170,196 110,161" fill="none" stroke="#1a4a6e" stroke-width="1" opacity="0.7"/>
+
+  <!-- Hexagon H: center (380, 300), medium -->
+  <polygon points="295,250 380,200 465,250 465,350 380,400 295,350" fill="none" stroke="#143a5c" stroke-width="1.2" opacity="0.6"/>
+
+  <!-- Circuit/digital lines -->
+  <line x1="115" y1="220" x2="170" y2="300" stroke="#1e6090" stroke-width="0.8" opacity="0.5"/>
+  <line x1="445" y1="150" x2="500" y2="320" stroke="#1e6090" stroke-width="0.8" opacity="0.45"/>
+  <line x1="380" y1="350" x2="240" y2="480" stroke="#1e6090" stroke-width="0.8" opacity="0.4"/>
+  <!-- Extra digital connector lines -->
+  <line x1="220" y1="220" x2="295" y2="270" stroke="#1e6090" stroke-width="0.6" opacity="0.35"/>
+  <line x1="500" y1="243" x2="445" y2="248" stroke="#1e6090" stroke-width="0.6" opacity="0.3"/>
+
+  <!-- Glowing nodes (digital circuit feel) -->
+  <circle cx="115" cy="220" r="3.5" fill="#2a8abd" opacity="0.8"/>
+  <circle cx="445" cy="150" r="3.5" fill="#2a8abd" opacity="0.7"/>
+  <circle cx="500" cy="363" r="3" fill="#2a8abd" opacity="0.7"/>
+  <circle cx="240" cy="530" r="3" fill="#2a8abd" opacity="0.6"/>
+  <circle cx="170" cy="135" r="2.5" fill="#2a8abd" opacity="0.6"/>
+  <circle cx="90" cy="438" r="2.5" fill="#2a8abd" opacity="0.55"/>
+  <circle cx="380" cy="300" r="3" fill="#2a8abd" opacity="0.6"/>
+
+  <!-- Small pixel/data accents -->
+  <rect x="298" y="268" width="3" height="3" fill="#3aafdb" opacity="0.3"/>
+  <rect x="462" y="248" width="2" height="2" fill="#3aafdb" opacity="0.25"/>
+  <rect x="152" y="398" width="2" height="2" fill="#3aafdb" opacity="0.25"/>
+  <rect x="530" y="490" width="3" height="3" fill="#3aafdb" opacity="0.3"/>
+</svg>

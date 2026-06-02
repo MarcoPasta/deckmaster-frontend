@@ -2,19 +2,22 @@
 import { useUser } from "@clerk/vue";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useDigimonDecks } from "../composables/digimon/useDigimonDecks";
 import { useNarutoDecks } from "../composables/naruto/useNarutoDecks";
 import { usePokemonDecks } from "../composables/pokemon/usePokemonDecks";
 import { useApi } from "../composables/useApi";
 import { useTcgState } from "../composables/useTcgState";
 import type {
+  DigimonCard,
+  DigimonDecks,
   NarutoCard,
   NarutoDecks,
   PokemonCard,
   PokemonDecks,
 } from "../interfaces/interfaces";
 
-type AnyDeck = PokemonDecks | NarutoDecks;
-type AnyCard = PokemonCard | NarutoCard;
+type AnyDeck = PokemonDecks | NarutoDecks | DigimonDecks;
+type AnyCard = PokemonCard | NarutoCard | DigimonCard;
 
 const router = useRouter();
 const { user } = useUser();
@@ -23,32 +26,41 @@ const { getBlob } = useApi();
 
 const pokemonDecks = usePokemonDecks(() => user.value?.id);
 const narutoDecks = useNarutoDecks(() => user.value?.id);
+const digimonDecks = useDigimonDecks(() => user.value?.id);
 
 const decks = computed<AnyDeck[]>(() => {
   if (selectedTcg.value === "naruto") return narutoDecks.decks.value;
+  if (selectedTcg.value === "digimon") return digimonDecks.decks.value;
   return pokemonDecks.decks.value;
 });
 
 function getPreviewImage(deck: AnyDeck): string {
   if (selectedTcg.value === "naruto")
     return narutoDecks.getPreviewImage(deck as NarutoDecks);
+  if (selectedTcg.value === "digimon")
+    return digimonDecks.getPreviewImage(deck as DigimonDecks);
   return pokemonDecks.getPreviewImage(deck as PokemonDecks);
 }
 
 function getCardImage(card: AnyCard): string {
   if (selectedTcg.value === "naruto")
     return narutoDecks.getCardImage(card as NarutoCard);
+  if (selectedTcg.value === "digimon")
+    return digimonDecks.getCardImage(card as DigimonCard);
   return pokemonDecks.getCardImage(card as PokemonCard);
 }
 
 function buildDeckText(deck: AnyDeck): string {
   if (selectedTcg.value === "naruto")
     return narutoDecks.buildDeckText(deck as NarutoDecks);
+  if (selectedTcg.value === "digimon")
+    return digimonDecks.buildDeckText(deck as DigimonDecks);
   return pokemonDecks.buildDeckText(deck as PokemonDecks);
 }
 
 function deleteDeckLocal(id: number) {
   if (selectedTcg.value === "naruto") return narutoDecks.deleteDeckLocal(id);
+  if (selectedTcg.value === "digimon") return digimonDecks.deleteDeckLocal(id);
   return pokemonDecks.deleteDeckLocal(id);
 }
 
@@ -106,7 +118,7 @@ async function copyAsText() {
 async function copyAsImage() {
   if (!selectedDeck.value) return;
 
-  const tcg = selectedTcg.value === "naruto" ? "naruto" : "pokemon";
+  const tcg = selectedTcg.value;
   const newTab = window.open("", "_blank");
 
   const blob = await getBlob(

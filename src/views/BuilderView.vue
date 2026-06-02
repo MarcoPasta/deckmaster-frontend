@@ -2,12 +2,17 @@
 import { useUser } from "@clerk/vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useDigimonBuilder } from "../composables/digimon/useDigimonBuilder";
 import { useNarutoBuilder } from "../composables/naruto/useNarutoBuilder";
 import { usePokemonBuilder } from "../composables/pokemon/usePokemonBuilder";
 import { useTcgState } from "../composables/useTcgState";
-import type { NarutoCard, PokemonCard } from "../interfaces/interfaces";
+import type {
+  DigimonCard,
+  NarutoCard,
+  PokemonCard,
+} from "../interfaces/interfaces";
 
-type AnyCard = PokemonCard | NarutoCard;
+type AnyCard = PokemonCard | NarutoCard | DigimonCard;
 
 const STORAGE_KEY = "builder-deck";
 const STORAGE_NAME_KEY = "builder-deck-name";
@@ -18,20 +23,26 @@ const { selectedTcg } = useTcgState();
 
 const pokemon = usePokemonBuilder();
 const naruto = useNarutoBuilder();
+const digimon = useDigimonBuilder();
 
 const filters = computed(() => {
   if (selectedTcg.value === "naruto") return naruto.filters;
+  if (selectedTcg.value === "digimon") return digimon.filters;
   return pokemon.filters;
 });
 
 function getCardImage(card: AnyCard): string {
   if (selectedTcg.value === "naruto")
     return naruto.getCardImage(card as NarutoCard);
+  if (selectedTcg.value === "digimon")
+    return digimon.getCardImage(card as DigimonCard);
   return pokemon.getCardImage(card as PokemonCard);
 }
 
 function cardKey(card: AnyCard): string {
   if (selectedTcg.value === "naruto") return naruto.cardKey(card as NarutoCard);
+  if (selectedTcg.value === "digimon")
+    return digimon.cardKey(card as DigimonCard);
   return pokemon.cardKey(card as PokemonCard);
 }
 
@@ -82,6 +93,8 @@ watch(
   (tcg) => {
     if (tcg === "naruto") {
       naruto.fetchCards();
+    } else if (tcg === "digimon") {
+      digimon.fetchCards();
     } else {
       pokemon.fetchCards();
     }
@@ -89,9 +102,11 @@ watch(
   { immediate: true },
 );
 
-const isLoading = computed(() =>
-  selectedTcg.value === "naruto" ? naruto.loading.value : pokemon.loading.value,
-);
+const isLoading = computed(() => {
+  if (selectedTcg.value === "naruto") return naruto.loading.value;
+  if (selectedTcg.value === "digimon") return digimon.loading.value;
+  return pokemon.loading.value;
+});
 
 watch(
   chosenCards,
@@ -109,6 +124,13 @@ const filteredCards = computed(() => {
   if (selectedTcg.value === "naruto") {
     return naruto.filterCards(
       naruto.allCards.value,
+      searchQuery.value,
+      activeFilter.value,
+    );
+  }
+  if (selectedTcg.value === "digimon") {
+    return digimon.filterCards(
+      digimon.allCards.value,
       searchQuery.value,
       activeFilter.value,
     );
@@ -181,6 +203,20 @@ async function saveDeck() {
         deckName.value.trim(),
         chosenCards.value as NarutoCard[],
       );
+    } else if (selectedTcg.value === "digimon") {
+      if (sessionStorage.getItem(STORAGE_ID_KEY) !== null) {
+        await digimon.updateDeck(
+          Number(sessionStorage.getItem(STORAGE_ID_KEY)),
+          deckName.value.trim(),
+          chosenCards.value as DigimonCard[],
+        );
+      } else {
+        await digimon.saveDeck(
+          user.value!.id,
+          deckName.value.trim(),
+          chosenCards.value as DigimonCard[],
+        );
+      }
     } else {
       if (sessionStorage.getItem(STORAGE_ID_KEY) !== null) {
         console.log(
@@ -220,6 +256,8 @@ async function importDeck() {
     let imported: AnyCard[];
     if (selectedTcg.value === "naruto") {
       imported = naruto.parseDeckList(text, naruto.allCards.value);
+    } else if (selectedTcg.value === "digimon") {
+      imported = digimon.parseDeckList(text, digimon.allCards.value);
     } else {
       imported = await pokemon.parseDeckList(text);
     }

@@ -1,6 +1,9 @@
-export interface DigimonCards {
-  id: string;
-  deckId: number;
+export interface DigimonCard {
+  ID: number;
+  CreatedAt: Date;
+  UpdatedAt: Date;
+  DeletedAt: Date | null;
+  cardId: string;
   name: string;
   cardType: string;
   color: string[];
@@ -12,9 +15,26 @@ export interface DigimonCards {
   species: string[];
   text: string[];
   set: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
+}
+
+export interface DigimonDeckEntry {
+  ID: number;
+  CreatedAt: Date;
+  UpdatedAt: Date;
+  DeletedAt: Date | null;
+  deckId: number;
+  cardId: number;
+  card: DigimonCard;
+}
+
+export interface DigimonDecks {
+  ID: number;
+  CreatedAt: Date;
+  UpdatedAt: Date;
+  DeletedAt: Date | null;
+  userId: string;
+  name: string;
+  entries: DigimonDeckEntry[];
 }
 
 export interface PokemonCard {

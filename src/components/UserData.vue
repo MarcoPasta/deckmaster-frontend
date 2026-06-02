@@ -2,7 +2,7 @@
 import { useSession } from "@clerk/vue";
 import { ref } from "vue";
 import { useApi } from "../composables/useApi";
-import type { DigimonCards } from "../interfaces/interfaces";
+import type { DigimonCard } from "../interfaces/interfaces";
 
 const userData = ref<any>(null);
 const { get } = useApi();
@@ -11,7 +11,7 @@ const { session } = useSession();
 const token = await session.value?.getToken();
 console.log("Fetching user data with token:", token);
 
-const cards = await get<DigimonCards[]>("/api/digimon/cards");
+const cards = await get<DigimonCard[]>("/api/digimon/cards");
 </script>
 
 <template>

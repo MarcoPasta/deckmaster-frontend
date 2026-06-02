@@ -4,50 +4,81 @@ import { useApi } from "../composables/useApi";
 
 const { postForm, loading } = useApi();
 
-const files = ref<File[]>([]);
-const isDragging = ref(false);
-const result = ref<{ success: boolean; message: string } | null>(null);
-const fileInput = ref<HTMLInputElement | null>(null);
+interface UploadBox {
+  label: string;
+  route: string;
+  files: File[];
+  isDragging: boolean;
+  result: { success: boolean; message: string } | null;
+  fileInput: HTMLInputElement | null;
+}
 
-function onDrop(e: DragEvent) {
-  isDragging.value = false;
+const boxes = ref<UploadBox[]>([
+  {
+    label: "Pokémon",
+    route: "/pokemon/cards/sets",
+    files: [],
+    isDragging: false,
+    result: null,
+    fileInput: null,
+  },
+  {
+    label: "Naruto",
+    route: "/naruto/cards/sets",
+    files: [],
+    isDragging: false,
+    result: null,
+    fileInput: null,
+  },
+  {
+    label: "Digimon",
+    route: "/digimon/cards/sets",
+    files: [],
+    isDragging: false,
+    result: null,
+    fileInput: null,
+  },
+]);
+
+function onDrop(box: UploadBox, e: DragEvent) {
+  box.isDragging = false;
   const dropped = Array.from(e.dataTransfer?.files ?? []).filter((f) =>
     f.name.endsWith(".json"),
   );
-  addFiles(dropped);
+  addFiles(box, dropped);
 }
 
-function onFileChange(e: Event) {
+function onFileChange(box: UploadBox, e: Event) {
   const input = e.target as HTMLInputElement;
-  addFiles(Array.from(input.files ?? []));
+  addFiles(box, Array.from(input.files ?? []));
   input.value = "";
 }
 
-function addFiles(incoming: File[]) {
-  const existing = new Set(files.value.map((f) => f.name));
-  files.value.push(...incoming.filter((f) => !existing.has(f.name)));
+function addFiles(box: UploadBox, incoming: File[]) {
+  const existing = new Set(box.files.map((f) => f.name));
+  box.files.push(...incoming.filter((f) => !existing.has(f.name)));
 }
 
-function removeFile(index: number) {
-  files.value.splice(index, 1);
+function removeFile(box: UploadBox, index: number) {
+  box.files.splice(index, 1);
 }
 
-async function upload() {
-  if (!files.value.length) return;
-  result.value = null;
+async function upload(box: UploadBox) {
+  if (!box.files.length) return;
+  box.result = null;
   const form = new FormData();
-  for (const file of files.value) {
+  for (const file of box.files) {
     form.append("files", file);
   }
   try {
-    await postForm("/pokemon/cards/sets", form);
-    result.value = {
+    await postForm(box.route, form);
+    box.result = {
       success: true,
-      message: `Uploaded ${files.value.length} file(s) successfully.`,
+      message: `Uploaded ${box.files.length} file(s) successfully.`,
     };
-    files.value = [];
+    box.files = [];
   } catch {
-    result.value = {
+    box.result = {
       success: false,
       message: "Upload failed. Please try again.",
     };
@@ -57,52 +88,56 @@ async function upload() {
 
 <template>
   <div class="upload-page">
-    <div class="upload-card">
-      <h2 class="upload-title">Upload Card Data</h2>
+    <div v-for="(box, idx) in boxes" :key="idx" class="upload-card">
+      <h2 class="upload-title">{{ box.label }}</h2>
 
       <div
         class="drop-zone"
-        :class="{ 'drop-zone--active': isDragging }"
-        @dragover.prevent="isDragging = true"
-        @dragleave.prevent="isDragging = false"
-        @drop.prevent="onDrop"
-        @click="fileInput?.click()"
+        :class="{ 'drop-zone--active': box.isDragging }"
+        @dragover.prevent="box.isDragging = true"
+        @dragleave.prevent="box.isDragging = false"
+        @drop.prevent="onDrop(box, $event)"
+        @click="box.fileInput?.click()"
       >
         <v-icon icon="mdi-file-upload-outline" class="drop-icon" />
         <p class="drop-label">Drop JSON files here or click to browse</p>
         <p class="drop-sub">Only <code>.json</code> files are accepted</p>
         <input
-          ref="fileInput"
+          :ref="
+            (el) => {
+              box.fileInput = el as HTMLInputElement;
+            }
+          "
           type="file"
           accept=".json"
           multiple
           class="hidden-input"
-          @change="onFileChange"
+          @change="onFileChange(box, $event)"
         />
       </div>
 
-      <ul v-if="files.length" class="file-list">
-        <li v-for="(file, i) in files" :key="file.name" class="file-item">
+      <ul v-if="box.files.length" class="file-list">
+        <li v-for="(file, i) in box.files" :key="file.name" class="file-item">
           <v-icon icon="mdi-file-code-outline" class="file-icon" />
           <span class="file-name">{{ file.name }}</span>
-          <button class="file-remove" @click="removeFile(i)">
+          <button class="file-remove" @click="removeFile(box, i)">
             <v-icon icon="mdi-close" />
           </button>
         </li>
       </ul>
 
       <div
-        v-if="result"
+        v-if="box.result"
         class="result-banner"
-        :class="result.success ? 'result-banner--ok' : 'result-banner--err'"
+        :class="box.result.success ? 'result-banner--ok' : 'result-banner--err'"
       >
-        {{ result.message }}
+        {{ box.result.message }}
       </div>
 
       <button
         class="upload-btn"
-        :disabled="!files.length || loading"
-        @click="upload"
+        :disabled="!box.files.length || loading"
+        @click="upload(box)"
       >
         <v-icon v-if="loading" icon="mdi-loading" class="spin" />
         <v-icon v-else icon="mdi-upload" />
@@ -114,9 +149,25 @@ async function upload() {
 
 <style scoped>
 .upload-page {
-  display: flex;
-  justify-content: center;
-  padding: 48px 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  padding: 48px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .upload-page {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .upload-page {
+    grid-template-columns: 1fr;
+    padding: 24px 12px;
+  }
 }
 
 .upload-card {
@@ -124,12 +175,11 @@ async function upload() {
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: var(--shadow);
-  padding: 32px;
+  padding: 24px;
   width: 100%;
-  max-width: 560px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .upload-title {
