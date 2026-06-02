@@ -269,7 +269,7 @@ function cardName(card: AnyCard): string {
 }
 
 const filteredCards = computed<AnyCard[]>(() => {
-  const q = searchQuery.value.toLowerCase();
+  const q = searchQuery.value !== null ? searchQuery.value.toLowerCase() : "";
   if (!q) return allCards.value;
   return allCards.value.filter((c) => cardName(c).toLowerCase().includes(q));
 });

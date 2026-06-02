@@ -8,7 +8,7 @@ export function useNarutoBuilder() {
   const allCards = ref<NarutoCard[]>([]);
   const imageUrls = ref<Record<string, string>>({});
   const loading = ref(false);
-  const filters = ["All", "Ninja", "Jutsu", "Mission", "Client"];
+  const filters = ["All", "Ninja", "Jutsu", "Mission"];
 
   async function fetchCards() {
     if (allCards.value.length > 0) return;
@@ -50,10 +50,19 @@ export function useNarutoBuilder() {
       const matchesSearch = (card.name ?? "")
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
-      const matchesFilter =
-        activeFilter === "all" ||
-        (card.keyword ?? "").toLowerCase() === activeFilter.toLowerCase();
-      return matchesSearch && matchesFilter;
+      if (activeFilter.toLowerCase() === "mission") {
+        const matchesFilter =
+          activeFilter === "all" ||
+          (card.group ?? "").toLowerCase().includes(activeFilter.toLowerCase());
+        return matchesSearch && matchesFilter;
+      } else {
+        const matchesFilter =
+          activeFilter === "all" ||
+          (card.keyword ?? "")
+            .toLowerCase()
+            .includes("/ " + activeFilter.toLowerCase());
+        return matchesSearch && matchesFilter;
+      }
     });
   }
 
