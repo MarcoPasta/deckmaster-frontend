@@ -64,30 +64,6 @@ function hideTooltip() {
 }
 
 const mobileThumbnail = ref<string | null>(null);
-let pressTimer: ReturnType<typeof setTimeout> | null = null;
-
-function onTouchStart(card: AnyCard) {
-  if (!isMobile.value) return;
-  pressTimer = setTimeout(() => {
-    mobileThumbnail.value = getCardImage(card);
-  }, 300);
-}
-
-function onTouchEnd() {
-  if (pressTimer) {
-    clearTimeout(pressTimer);
-    pressTimer = null;
-  }
-  mobileThumbnail.value = null;
-}
-
-function onTouchMove() {
-  if (pressTimer) {
-    clearTimeout(pressTimer);
-    pressTimer = null;
-  }
-  mobileThumbnail.value = null;
-}
 
 const chosenCards = ref<AnyCard[]>(
   JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "[]"),
@@ -153,6 +129,11 @@ function addCard(card: AnyCard) {
   setTimeout(() => {
     if (bouncingCard.value === key) bouncingCard.value = null;
   }, 350);
+}
+
+function addCardDesktop(card: AnyCard) {
+  if (isMobile.value) return;
+  addCard(card);
 }
 
 function removeCard(card: AnyCard) {
@@ -259,6 +240,66 @@ function cardName(card: AnyCard): string {
 // Responsive detection
 const isNarrow = ref(window.innerWidth < 1366);
 const isMobile = ref(window.innerWidth <= 480);
+
+let lastTapTime = 0;
+let lastTapCard: AnyCard | null = null;
+let touchDidScroll = false;
+
+let previewTimer: ReturnType<typeof setTimeout> | null = null;
+
+function onTouchStart() {
+  touchDidScroll = false;
+}
+
+function onTouchMove() {
+  touchDidScroll = true;
+  if (previewTimer) {
+    clearTimeout(previewTimer);
+    previewTimer = null;
+  }
+}
+
+function onMobileTap(card: AnyCard) {
+  if (!isMobile.value) return;
+  if (touchDidScroll) return;
+  const now = Date.now();
+  const key = cardKey(card);
+  const lastKey = lastTapCard ? cardKey(lastTapCard) : null;
+  if (lastKey === key && now - lastTapTime < 400) {
+    // Double tap: add card to deck
+    if (previewTimer) {
+      clearTimeout(previewTimer);
+      previewTimer = null;
+    }
+    mobileThumbnail.value = null;
+    addCard(card);
+    lastTapCard = null;
+    lastTapTime = 0;
+  } else {
+    // Single tap: delay showing preview to allow double-tap
+    lastTapCard = card;
+    lastTapTime = now;
+    if (previewTimer) clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      mobileThumbnail.value = getCardImage(card);
+      previewTimer = null;
+    }, 400);
+  }
+}
+
+function onMobileOverlayTap() {
+  const now = Date.now();
+  if (lastTapCard && now - lastTapTime < 400) {
+    // Second tap on overlay counts as double-tap to add card
+    addCard(lastTapCard);
+    mobileThumbnail.value = null;
+    lastTapCard = null;
+    lastTapTime = 0;
+  } else {
+    mobileThumbnail.value = null;
+    lastTapCard = null;
+  }
+}
 
 function onResize() {
   isNarrow.value = window.innerWidth < 1366;
@@ -411,8 +452,8 @@ function onDrawerTouchEnd() {
       <div
         v-if="isMobile"
         class="drawer-handle"
-        @touchstart.prevent="onDrawerTouchStart"
-        @touchmove.prevent="onDrawerTouchMove"
+        @touchstart="onDrawerTouchStart"
+        @touchmove="onDrawerTouchMove"
         @touchend="onDrawerTouchEnd"
         @click="toggleDrawer"
       >
@@ -467,10 +508,6 @@ function onDrawerTouchEnd() {
           @mouseenter="showTooltip(group.card, $event)"
           @mousemove="moveTooltip($event)"
           @mouseleave="hideTooltip"
-          @touchstart="onTouchStart(group.card)"
-          @touchend="onTouchEnd"
-          @touchcancel="onTouchEnd"
-          @touchmove="onTouchMove"
         >
           <!-- Narrow: single image per card -->
           <template v-if="isNarrow">
@@ -510,7 +547,7 @@ function onDrawerTouchEnd() {
     </div>
 
     <!-- Draggable divider -->
-    <div v-if="!isMobile" class="divider" @mousedown.prevent="startDrag">
+    <div v-if="!isMobile" class="divider" @mousedown="startDrag">
       <div class="divider-handle" />
     </div>
 
@@ -582,7 +619,9 @@ function onDrawerTouchEnd() {
                     cardKey(getCardAtPosition(virtualRow.index, col - 1)!) &&
                     'card-bounce-active',
                 ]"
-                @click="addCard(getCardAtPosition(virtualRow.index, col - 1)!)"
+                @click="
+                  addCardDesktop(getCardAtPosition(virtualRow.index, col - 1)!)
+                "
                 @mouseenter="
                   showTooltip(
                     getCardAtPosition(virtualRow.index, col - 1)!,
@@ -591,12 +630,11 @@ function onDrawerTouchEnd() {
                 "
                 @mousemove="moveTooltip($event)"
                 @mouseleave="hideTooltip"
-                @touchstart="
-                  onTouchStart(getCardAtPosition(virtualRow.index, col - 1)!)
+                @touchstart="onTouchStart"
+                @touchmove.passive="onTouchMove"
+                @touchend.prevent="
+                  onMobileTap(getCardAtPosition(virtualRow.index, col - 1)!)
                 "
-                @touchend="onTouchEnd"
-                @touchcancel="onTouchEnd"
-                @touchmove="onTouchMove"
               >
                 <img
                   :src="
@@ -627,7 +665,7 @@ function onDrawerTouchEnd() {
     <div
       v-if="mobileThumbnail"
       class="mobile-thumbnail-overlay"
-      @touchend="onTouchEnd"
+      @click="onMobileOverlayTap"
     >
       <img :src="mobileThumbnail" class="mobile-thumbnail-img" />
     </div>

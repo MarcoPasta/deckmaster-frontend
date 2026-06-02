@@ -63,6 +63,20 @@ function formatDate(date: Date | string): string {
 const dialogOpen = ref(false);
 const selectedDeck = ref<AnyDeck | null>(null);
 
+const groupedEntries = computed(() => {
+  if (!selectedDeck.value?.entries) return [];
+  const map = new Map<number, { card: AnyCard; count: number }>();
+  for (const entry of selectedDeck.value.entries) {
+    const id = entry.card.ID;
+    if (map.has(id)) {
+      map.get(id)!.count++;
+    } else {
+      map.set(id, { card: entry.card, count: 1 });
+    }
+  }
+  return Array.from(map.values());
+});
+
 function openDeck(deck: AnyDeck) {
   selectedDeck.value = deck;
   dialogOpen.value = true;
@@ -160,16 +174,19 @@ function deleteDeck() {
         </v-card-text>
         <div class="dialog-card-grid">
           <div
-            v-for="entry in selectedDeck?.entries ?? []"
-            :key="entry.ID"
+            v-for="group in groupedEntries"
+            :key="group.card.ID"
             class="dialog-card-slot"
           >
             <img
-              v-if="getCardImage(entry.card)"
-              :src="getCardImage(entry.card)"
-              :alt="(entry.card as any).Name ?? (entry.card as any).name ?? ''"
+              v-if="getCardImage(group.card)"
+              :src="getCardImage(group.card)"
+              :alt="(group.card as any).Name ?? (group.card as any).name ?? ''"
               class="dialog-card-img"
             />
+            <span v-if="group.count > 1" class="dialog-card-count">
+              {{ group.count }}
+            </span>
           </div>
         </div>
         <v-divider />
@@ -330,6 +347,7 @@ function deleteDeck() {
 }
 
 .dialog-card-slot {
+  position: relative;
   aspect-ratio: 5 / 7;
 }
 
@@ -338,6 +356,24 @@ function deleteDeck() {
   height: 100%;
   object-fit: cover;
   border-radius: 8px;
+}
+
+.dialog-card-count {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: #7c4dff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .dialog-actions {
