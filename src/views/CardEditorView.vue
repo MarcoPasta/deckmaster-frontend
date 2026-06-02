@@ -53,6 +53,7 @@ const pokemonScalarFields = [
   { key: "CardNumber", label: "Card Number", type: "text" },
   { key: "Code", label: "Code", type: "text" },
   { key: "Set", label: "Set", type: "text" },
+  { key: "Tags", label: "Tags", type: "text" },
 ];
 
 const narutoScalarFields = [
@@ -78,13 +79,27 @@ const dialogOpen = ref(false);
 const selectedCard = ref<AnyCard | null>(null);
 const editForm = ref<Record<string, unknown>>({});
 const attacksJson = ref("[]");
-const attacksEnJson = ref("[]");
+const chips = ref<string[]>([]);
 const effectTypesJson = ref("[]");
 const imageFile = ref<File | null>(null);
 const imagePreview = ref("");
 const imageInputRef = ref<HTMLInputElement | null>(null);
 const saving = ref(false);
 const deleting = ref(false);
+const tagItems = [
+  "item lock",
+  "retreat lock",
+  "stun", // z.b. crustle, cornerstone
+  "handcontrol",
+  "spread",
+  "healing",
+  "beatsticks", // viel schaden ohne effekt
+  "draw",
+  "search",
+  "setup",
+  "acceleration",
+  "special condition",
+];
 
 function openCard(card: AnyCard) {
   selectedCard.value = card;
@@ -97,7 +112,7 @@ function openCard(card: AnyCard) {
   if (selectedTcg.value === "pokemon") {
     const c = card as PokemonCard;
     attacksJson.value = JSON.stringify(c.Attacks ?? [], null, 2);
-    attacksEnJson.value = JSON.stringify(c.AttacksEN ?? [], null, 2);
+    chips.value = c.Tags?.map((t) => JSON.parse(t)) ?? [];
   } else {
     const c = card as NarutoCard;
     effectTypesJson.value = JSON.stringify(c.effect_types ?? [], null, 2);
@@ -135,11 +150,20 @@ function formatRequestBody(
     pCard.CardNumber = String(body.CardNumber ?? "");
     pCard.Code = String(body.Code ?? "");
     pCard.Set = String(body.Set ?? "");
+    pCard.Tags = chips.value.map((c) => JSON.stringify(c));
     try {
       pCard.Attacks = JSON.parse(attacksJson.value);
     } catch (e) {
       console.error("Invalid JSON for Attacks:", e);
     }
+    // try {
+    //   for (const chip of chips.value) {
+    //     if (!chip.trim()) continue;
+    //     pCard.Tags.concat(JSON.stringify(chip));
+    //   }
+    // } catch (e) {
+    //   console.error("Invalid JSON for Tags:", e);
+    // }
     return pCard;
   }
   if (selectedTcg.value === "naruto") {
@@ -433,16 +457,21 @@ watch(selectedTcg, () => {
               font-family="mono"
             />
 
-            <!-- replace with tags -->
-            <!-- <v-textarea
-              v-model="attacksEnJson"
-              label="Attacks EN (JSON)"
+            <!-- tag field -->
+            <v-combobox
+              v-model="chips"
+              :items="tagItems"
+              label="Tags"
               variant="outlined"
-              density="compact"
-              rows="4"
-              hide-details
-              class="json-field"
-            /> -->
+              chips
+              clearable
+              closable-chips
+              multiple
+            >
+              <template v-slot:chip="{ props, item }">
+                <v-chip v-bind="props">{{ item }}</v-chip>
+              </template>
+            </v-combobox>
           </template>
           <template v-else-if="selectedTcg === 'naruto'">
             <v-textarea

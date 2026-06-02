@@ -164,6 +164,10 @@ function removeCard(card: AnyCard) {
 
 function clearDeck() {
   chosenCards.value = [];
+  deckName.value = "";
+  sessionStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(STORAGE_ID_KEY);
+  sessionStorage.removeItem(STORAGE_NAME_KEY);
 }
 
 interface CardGroup {
@@ -197,11 +201,12 @@ async function saveDeck() {
         chosenCards.value as NarutoCard[],
       );
     } else {
-      if (sessionStorage.getItem(STORAGE_ID_KEY) !== "") {
+      if (sessionStorage.getItem(STORAGE_ID_KEY) !== null) {
         console.log(
           "Updating existing deck with ID",
           sessionStorage.getItem(STORAGE_ID_KEY),
         );
+
         await pokemon.updateDeck(
           Number(sessionStorage.getItem(STORAGE_ID_KEY)),
           deckName.value.trim(),
@@ -235,7 +240,6 @@ async function importDeck() {
     if (selectedTcg.value === "naruto") {
       imported = naruto.parseDeckList(text, naruto.allCards.value);
     } else {
-      // imported = pokemon.parseDeckList(text, pokemon.allCards.value);
       imported = await pokemon.parseDeckList(text);
     }
     if (imported.length > 0) {
@@ -488,8 +492,8 @@ function onDrawerTouchEnd() {
               class="card-image card-chosen"
               :style="{
                 position: 'absolute',
-                bottom: `${(n - 4) * 0}px`,
-                right: `${(n - 5) * 5}px`,
+                bottom: `${(n - 1) * 0}px`,
+                left: `${(n - 1) * 3}px`,
                 zIndex: n,
               }"
             />
@@ -812,9 +816,9 @@ function onDrawerTouchEnd() {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   grid-auto-rows: min-content;
-  gap: 12px 8px;
+  gap: 12px 16px;
   overflow-y: auto;
   padding-right: 12px;
   padding-bottom: 20px;

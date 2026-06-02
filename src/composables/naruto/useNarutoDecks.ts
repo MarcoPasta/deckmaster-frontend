@@ -58,7 +58,6 @@ export function useNarutoDecks(userId: () => string | undefined) {
     const entry = deck.entries?.[0];
     if (!entry?.card?.card_number || !entry?.card?.rarity) return "";
     const key = `cards/naruto/${entry.card.set}_${formatCardNumber(entry.card)}_${entry.card.rarity}.webp`;
-    console.log(key);
     return imageUrls.value[key] || "";
   }
 

@@ -36,6 +36,7 @@ export interface PokemonCard {
   CardNumber: string;
   Code: string;
   Set: string;
+  Tags: string[];
 }
 
 export interface Attack {
