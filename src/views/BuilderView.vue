@@ -541,7 +541,7 @@ function onDrawerTouchEnd() {
                 : undefined
             "
             size="small"
-            @click="activeFilter = filter.toLowerCase()"
+            @click.passive="activeFilter = filter.toLowerCase()"
           >
             {{ filter }}
           </v-chip>

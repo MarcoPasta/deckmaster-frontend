@@ -8,7 +8,7 @@ export function usePokemonBuilder() {
   const allCards = ref<PokemonCard[]>([]);
   const imageUrls = ref<Record<string, string>>({});
   const loading = ref(false);
-  const filters = ["All", "Pokémon", "Trainer", "Energy"];
+  const filters = ["All", "Pokemon", "Trainer", "Energy"];
 
   async function fetchCards() {
     if (allCards.value.length > 0) return;
@@ -53,6 +53,9 @@ export function usePokemonBuilder() {
         if (activeFilter === "energy") {
           matchesFilter = type === "energie" || type === "energy";
         } else {
+          console.log("activeFilter: ", activeFilter.toLowerCase());
+          console.log("selected type: ", type);
+          console.log("does it match: ", type === activeFilter.toLowerCase());
           matchesFilter = type === activeFilter.toLowerCase();
         }
       }
