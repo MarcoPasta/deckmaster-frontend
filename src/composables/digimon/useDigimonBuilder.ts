@@ -28,13 +28,13 @@ export function useDigimonBuilder() {
   }
 
   function getCardImage(card: DigimonCard): string {
-    if (!card.cardId) return "";
-    const key = `cards/digimon/${card.cardId}.png`;
+    if (!card.CardNumber) return "";
+    const key = `cards/digimon/${card.CardNumber}.png`;
     return imageUrls.value[key] || "";
   }
 
   function cardKey(card: DigimonCard): string {
-    return card.cardId;
+    return card.CardNumber;
   }
 
   function filterCards(
@@ -69,9 +69,9 @@ export function useDigimonBuilder() {
       if (!match) continue;
 
       const count = parseInt(match[1], 10);
-      const cardId = match[2].trim();
+      const cardNumber = match[2].trim();
 
-      const card = cardPool.find((c) => c.cardId === cardId);
+      const card = cardPool.find((c) => c.CardNumber === cardNumber);
 
       if (card) {
         for (let i = 0; i < count; i++) {
@@ -88,10 +88,11 @@ export function useDigimonBuilder() {
     name: string,
     cards: DigimonCard[],
   ): Promise<void> {
+    console.log("saving digimon deck with cards: ", cards);
     await post("/auth/digimon/decks/create", {
       UserId: userId,
       Name: name,
-      Entries: cards.map((card) => ({ cardId: card.ID })),
+      Entries: cards.map((card) => ({ CardId: card.ID })),
     });
   }
 
@@ -103,7 +104,7 @@ export function useDigimonBuilder() {
     await put(`/auth/digimon/decks/${deckId}/update`, {
       DeckId: deckId,
       Name: name,
-      Entries: cards.map((card) => ({ cardId: card.ID })),
+      Entries: cards.map((card) => ({ CardId: card.ID })),
     });
   }
 

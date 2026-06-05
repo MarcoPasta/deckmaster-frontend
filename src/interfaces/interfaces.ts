@@ -3,7 +3,7 @@ export interface DigimonCard {
   CreatedAt: Date;
   UpdatedAt: Date;
   DeletedAt: Date | null;
-  cardId: string;
+  CardNumber: string;
   name: string;
   cardType: string;
   color: string[];

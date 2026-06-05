@@ -3,7 +3,7 @@ import type { DigimonCard, DigimonDecks } from "../../interfaces/interfaces";
 import { useApi } from "../useApi";
 
 export function useDigimonDecks(userId: () => string | undefined) {
-  const { get, del } = useApi();
+  const { get, del, put } = useApi();
   const decks = ref<DigimonDecks[]>([]);
   const imageUrls = ref<Record<string, string>>({});
 
@@ -40,27 +40,27 @@ export function useDigimonDecks(userId: () => string | undefined) {
 
   function getPreviewImage(deck: DigimonDecks): string {
     const entry = deck.entries?.[0];
-    if (!entry?.card?.cardId) return "";
-    const key = `cards/digimon/${entry.card.cardId}.png`;
+    if (!entry?.card?.CardNumber) return "";
+    const key = `cards/digimon/${entry.card.CardNumber}.png`;
     return imageUrls.value[key] || "";
   }
 
   function getCardImage(card: DigimonCard): string {
-    if (!card.cardId) return "";
-    const key = `cards/digimon/${card.cardId}.png`;
+    if (!card.CardNumber) return "";
+    const key = `cards/digimon/${card.CardNumber}.png`;
     return imageUrls.value[key] || "";
   }
 
   function buildDeckText(deck: DigimonDecks): string {
     const entries = deck.entries ?? [];
 
-    const cardCounts = new Map<number, { card: DigimonCard; count: number }>();
+    const cardCounts = new Map<string, { card: DigimonCard; count: number }>();
     for (const entry of entries) {
-      const existing = cardCounts.get(entry.card.ID);
+      const existing = cardCounts.get(entry.card.CardNumber);
       if (existing) {
         existing.count++;
       } else {
-        cardCounts.set(entry.card.ID, { card: entry.card, count: 1 });
+        cardCounts.set(entry.card.CardNumber, { card: entry.card, count: 1 });
       }
     }
 
@@ -68,18 +68,36 @@ export function useDigimonDecks(userId: () => string | undefined) {
     const total = entries.length;
     lines.push(`Digimon: ${total}`);
     for (const { card, count } of cardCounts.values()) {
-      lines.push(`${count} ${card.name} ${card.cardId}`);
+      lines.push(`${count} ${card.name} ${card.CardNumber}`);
     }
 
     return lines.join("\n").trim();
   }
 
-  async function deleteDeckLocal(deckId: number) {
+  async function deleteDeck(deckId: number) {
     decks.value = decks.value.filter((d) => d.ID !== deckId);
     try {
       await del(`/auth/digimon/decks/${deckId}/delete`);
     } catch (e) {
       console.error("Failed to delete digimon deck:", e);
+    }
+  }
+
+  async function updateDeck(
+    deckId: number,
+    body: { name?: string; cardIds?: number[] },
+  ) {
+    try {
+      const updated = await put<{ content: DigimonDecks }>(
+        `/auth/digimon/decks/${deckId}/update`,
+        body,
+      );
+      const index = decks.value.findIndex((d) => d.ID === deckId);
+      if (index !== -1) {
+        decks.value[index] = updated.content;
+      }
+    } catch (e) {
+      console.error("Failed to update digimon deck:", e);
     }
   }
 
@@ -89,6 +107,7 @@ export function useDigimonDecks(userId: () => string | undefined) {
     getPreviewImage,
     getCardImage,
     buildDeckText,
-    deleteDeckLocal,
+    deleteDeck,
+    updateDeck,
   };
 }

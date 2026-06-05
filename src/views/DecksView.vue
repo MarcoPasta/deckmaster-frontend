@@ -60,7 +60,7 @@ function buildDeckText(deck: AnyDeck): string {
 
 function deleteDeckLocal(id: number) {
   if (selectedTcg.value === "naruto") return narutoDecks.deleteDeckLocal(id);
-  if (selectedTcg.value === "digimon") return digimonDecks.deleteDeckLocal(id);
+  if (selectedTcg.value === "digimon") return digimonDecks.deleteDeck(id);
   return pokemonDecks.deleteDeckLocal(id);
 }
 

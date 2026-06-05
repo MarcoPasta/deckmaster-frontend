@@ -16,7 +16,7 @@ interface UploadBox {
 const boxes = ref<UploadBox[]>([
   {
     label: "Pokémon",
-    route: "/pokemon/cards/sets",
+    route: "/admin/pokemon/sets",
     files: [],
     isDragging: false,
     result: null,
@@ -24,7 +24,7 @@ const boxes = ref<UploadBox[]>([
   },
   {
     label: "Naruto",
-    route: "/naruto/cards/sets",
+    route: "/admin/naruto/sets",
     files: [],
     isDragging: false,
     result: null,
@@ -32,7 +32,7 @@ const boxes = ref<UploadBox[]>([
   },
   {
     label: "Digimon",
-    route: "/digimon/cards/sets",
+    route: "/admin/digimon/sets",
     files: [],
     isDragging: false,
     result: null,
