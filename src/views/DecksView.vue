@@ -58,10 +58,10 @@ function buildDeckText(deck: AnyDeck): string {
   return pokemonDecks.buildDeckText(deck as PokemonDecks);
 }
 
-function deleteDeckLocal(id: number) {
-  if (selectedTcg.value === "naruto") return narutoDecks.deleteDeckLocal(id);
+async function deleteDeckLocal(id: number) {
+  if (selectedTcg.value === "naruto") return narutoDecks.deleteDeck(id);
   if (selectedTcg.value === "digimon") return digimonDecks.deleteDeck(id);
-  return pokemonDecks.deleteDeckLocal(id);
+  return pokemonDecks.deleteDeck(id);
 }
 
 function formatDate(date: Date | string): string {

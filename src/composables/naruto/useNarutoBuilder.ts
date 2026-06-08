@@ -3,7 +3,7 @@ import type { NarutoCard } from "../../interfaces/interfaces";
 import { useApi } from "../useApi";
 
 export function useNarutoBuilder() {
-  const { get, post } = useApi();
+  const { get, post, put } = useApi();
 
   const allCards = ref<NarutoCard[]>([]);
   const imageUrls = ref<Record<string, string>>({});
@@ -113,6 +113,19 @@ export function useNarutoBuilder() {
     });
   }
 
+  async function updateDeck(
+    deckId: number,
+    name: string,
+    cards: NarutoCard[],
+  ): Promise<void> {
+    console.log(cards.map((card) => ({ cardId: card.ID })));
+    await put(`/auth/naruto/decks/${deckId}/update`, {
+      DeckId: deckId,
+      Name: name,
+      Entries: cards.map((card) => ({ cardId: card.ID })),
+    });
+  }
+
   return {
     allCards,
     loading,
@@ -123,5 +136,6 @@ export function useNarutoBuilder() {
     filterCards,
     parseDeckList,
     saveDeck,
+    updateDeck,
   };
 }

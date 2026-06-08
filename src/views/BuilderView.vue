@@ -198,11 +198,19 @@ async function saveDeck() {
   saving.value = true;
   try {
     if (selectedTcg.value === "naruto") {
-      await naruto.saveDeck(
-        user.value!.id,
-        deckName.value.trim(),
-        chosenCards.value as NarutoCard[],
-      );
+      if (sessionStorage.getItem(STORAGE_ID_KEY) !== null) {
+        await naruto.updateDeck(
+          Number(sessionStorage.getItem(STORAGE_ID_KEY)),
+          deckName.value.trim(),
+          chosenCards.value as NarutoCard[],
+        );
+      } else {
+        await naruto.saveDeck(
+          user.value!.id,
+          deckName.value.trim(),
+          chosenCards.value as NarutoCard[],
+        );
+      }
     } else if (selectedTcg.value === "digimon") {
       if (sessionStorage.getItem(STORAGE_ID_KEY) !== null) {
         await digimon.updateDeck(

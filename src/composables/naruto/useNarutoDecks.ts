@@ -3,7 +3,7 @@ import type { NarutoCard, NarutoDecks } from "../../interfaces/interfaces";
 import { useApi } from "../useApi";
 
 export function useNarutoDecks(userId: () => string | undefined) {
-  const { get } = useApi();
+  const { get, del } = useApi();
   const decks = ref<NarutoDecks[]>([]);
   const imageUrls = ref<Record<string, string>>({});
 
@@ -90,8 +90,13 @@ export function useNarutoDecks(userId: () => string | undefined) {
     return lines.join("\n").trim();
   }
 
-  function deleteDeckLocal(deckId: number) {
+  async function deleteDeck(deckId: number) {
     decks.value = decks.value.filter((d) => d.ID !== deckId);
+    try {
+      await del(`/auth/naruto/decks/${deckId}/delete`);
+    } catch (e) {
+      console.error("Failed to delete naruto deck:", e);
+    }
   }
 
   return {
@@ -100,6 +105,6 @@ export function useNarutoDecks(userId: () => string | undefined) {
     getPreviewImage,
     getCardImage,
     buildDeckText,
-    deleteDeckLocal,
+    deleteDeck,
   };
 }

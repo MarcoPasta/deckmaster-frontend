@@ -105,7 +105,7 @@ export function usePokemonDecks(userId: () => string | undefined) {
     return lines.join("\n").trim();
   }
 
-  async function deleteDeckLocal(deckId: number) {
+  async function deleteDeck(deckId: number) {
     decks.value = decks.value.filter((d) => d.ID !== deckId);
     try {
       await del(`/auth/pokemon/decks/${deckId}/delete`);
@@ -120,6 +120,6 @@ export function usePokemonDecks(userId: () => string | undefined) {
     getPreviewImage,
     getCardImage,
     buildDeckText,
-    deleteDeckLocal,
+    deleteDeck,
   };
 }
