@@ -66,39 +66,22 @@ export function useNarutoBuilder() {
     });
   }
 
-  function parseDeckList(text: string, cardPool: NarutoCard[]): NarutoCard[] {
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const imported: NarutoCard[] = [];
-
-    for (const line of lines) {
-      // Skip section headers
-      if (/^.+:\s*\d+$/i.test(line) && !line.match(/^\d/)) continue;
-
-      // Parse lines like "4 Naruto Uzumaki 01 C"
-      const match = line.match(
-        /^(\d+)\s+(.+?)\s+(\d+|M\d+|Legendary)\s+(\w+)$/,
+  async function parseDeckList(text: string): Promise<NarutoCard[]> {
+    const cardPool: NarutoCard[] = [];
+    try {
+      const parsedList = await get<{ content: NarutoCard[] }>(
+        "/naruto/cards/names",
+        {
+          decklist: text,
+        },
       );
-      if (!match) continue;
-
-      const count = parseInt(match[1], 10);
-      const cardNumber = match[3];
-      const rarity = match[4];
-
-      const card = cardPool.find(
-        (c) => c.card_number === cardNumber && c.rarity === rarity,
-      );
-
-      if (card) {
-        for (let i = 0; i < count; i++) {
-          imported.push(card);
-        }
-      }
+      cardPool.push(...parsedList.content);
+    } catch (e) {
+      console.error("Failed to fetch cards:", e);
+    } finally {
+      loading.value = false;
     }
-
-    return imported;
+    return cardPool;
   }
 
   async function saveDeck(

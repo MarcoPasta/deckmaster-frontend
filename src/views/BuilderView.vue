@@ -263,7 +263,7 @@ async function importDeck() {
     const text = await navigator.clipboard.readText();
     let imported: AnyCard[];
     if (selectedTcg.value === "naruto") {
-      imported = naruto.parseDeckList(text, naruto.allCards.value);
+      imported = await naruto.parseDeckList(text);
     } else if (selectedTcg.value === "digimon") {
       imported = digimon.parseDeckList(text, digimon.allCards.value);
     } else {
