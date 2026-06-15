@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
-import { useVirtualizer } from "@tanstack/vue-virtual";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import CardTooltip from "../components/CardTooltip.vue";
+import DeckPanel from "../components/DeckPanel.vue";
+import VirtualCardGrid from "../components/VirtualCardGrid.vue";
 import { useDigimonBuilder } from "../composables/digimon/useDigimonBuilder";
+import { useDragDivider } from "../composables/useDragDivider";
+import { useMobileInteractions } from "../composables/useMobileInteractions";
 import { useNarutoBuilder } from "../composables/naruto/useNarutoBuilder";
 import { usePokemonBuilder } from "../composables/pokemon/usePokemonBuilder";
 import { useTcgState } from "../composables/useTcgState";
@@ -20,10 +24,12 @@ const STORAGE_ID_KEY = "builder-deck-id";
 
 const { user } = useUser();
 const { selectedTcg } = useTcgState();
-
 const pokemon = usePokemonBuilder();
 const naruto = useNarutoBuilder();
 const digimon = useDigimonBuilder();
+
+const builderEl = ref<HTMLElement | null>(null);
+const { splitPercent, dragging, startDrag } = useDragDivider(builderEl);
 
 const filters = computed(() => {
   if (selectedTcg.value === "naruto") return naruto.filters;
@@ -32,75 +38,35 @@ const filters = computed(() => {
 });
 
 function getCardImage(card: AnyCard): string {
-  if (selectedTcg.value === "naruto")
-    return naruto.getCardImage(card as NarutoCard);
-  if (selectedTcg.value === "digimon")
-    return digimon.getCardImage(card as DigimonCard);
+  if (selectedTcg.value === "naruto") return naruto.getCardImage(card as NarutoCard);
+  if (selectedTcg.value === "digimon") return digimon.getCardImage(card as DigimonCard);
   return pokemon.getCardImage(card as PokemonCard);
 }
 
 function cardKey(card: AnyCard): string {
   if (selectedTcg.value === "naruto") return naruto.cardKey(card as NarutoCard);
-  if (selectedTcg.value === "digimon")
-    return digimon.cardKey(card as DigimonCard);
+  if (selectedTcg.value === "digimon") return digimon.cardKey(card as DigimonCard);
   return pokemon.cardKey(card as PokemonCard);
+}
+
+function cardName(card: AnyCard): string {
+  if ("Name" in card) return card.Name ?? "";
+  if ("name" in card) return card.name ?? "";
+  return "";
 }
 
 const searchQuery = ref("");
 const activeFilter = ref("all");
 const deckName = ref(sessionStorage.getItem(STORAGE_NAME_KEY) || "");
-const editingDeckId = ref<number | null>(
-  sessionStorage.getItem(STORAGE_ID_KEY)
-    ? Number(sessionStorage.getItem(STORAGE_ID_KEY))
-    : null,
-);
 const saving = ref(false);
+const chosenCards = ref<AnyCard[]>(JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "[]"));
 
-const tooltipImage = ref("");
-const tooltipPos = ref({ x: 0, y: 0 });
-const tooltipVisible = ref(false);
-
-function showTooltip(card: AnyCard, event: MouseEvent) {
-  tooltipImage.value = getCardImage(card);
-  tooltipPos.value = { x: event.clientX + 16, y: event.clientY + 16 };
-  tooltipVisible.value = true;
-}
-
-function moveTooltip(event: MouseEvent) {
-  tooltipPos.value = { x: event.clientX + 16, y: event.clientY + 16 };
-}
-
-function hideTooltip() {
-  tooltipVisible.value = false;
-}
-
-const mobileThumbnail = ref<string | null>(null);
-
-const chosenCards = ref<AnyCard[]>(
-  JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "[]"),
-);
-
-// Clear deck when TCG switches
-watch(selectedTcg, () => {
-  chosenCards.value = [];
-  activeFilter.value = "all";
-  searchQuery.value = "";
-});
-
-// Lazy-fetch only the active TCG's cards
-watch(
-  selectedTcg,
-  (tcg) => {
-    if (tcg === "naruto") {
-      naruto.fetchCards();
-    } else if (tcg === "digimon") {
-      digimon.fetchCards();
-    } else {
-      pokemon.fetchCards();
-    }
-  },
-  { immediate: true },
-);
+watch(selectedTcg, () => { chosenCards.value = []; activeFilter.value = "all"; searchQuery.value = ""; });
+watch(selectedTcg, (tcg) => {
+  if (tcg === "naruto") naruto.fetchCards();
+  else if (tcg === "digimon") digimon.fetchCards();
+  else pokemon.fetchCards();
+}, { immediate: true });
 
 const isLoading = computed(() => {
   if (selectedTcg.value === "naruto") return naruto.loading.value;
@@ -108,38 +74,26 @@ const isLoading = computed(() => {
   return pokemon.loading.value;
 });
 
-watch(
-  chosenCards,
-  (val) => {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(val));
-  },
-  { deep: true },
-);
-
-watch(deckName, (val) => {
-  sessionStorage.setItem(STORAGE_NAME_KEY, val);
-});
+watch(chosenCards, (val) => sessionStorage.setItem(STORAGE_KEY, JSON.stringify(val)), { deep: true });
+watch(deckName, (val) => sessionStorage.setItem(STORAGE_NAME_KEY, val));
 
 const filteredCards = computed(() => {
-  if (selectedTcg.value === "naruto") {
-    return naruto.filterCards(
-      naruto.allCards.value,
-      searchQuery.value,
-      activeFilter.value,
-    );
+  if (selectedTcg.value === "naruto") return naruto.filterCards(naruto.allCards.value, searchQuery.value, activeFilter.value);
+  if (selectedTcg.value === "digimon") return digimon.filterCards(digimon.allCards.value, searchQuery.value, activeFilter.value);
+  return pokemon.filterCards(pokemon.allCards.value, searchQuery.value, activeFilter.value);
+});
+
+interface CardGroup { card: AnyCard; key: string; count: number; }
+
+const groupedChosenCards = computed<CardGroup[]>(() => {
+  const map = new Map<string, CardGroup>();
+  for (const card of chosenCards.value) {
+    const k = cardKey(card);
+    const existing = map.get(k);
+    if (existing) existing.count++;
+    else map.set(k, { card, key: k, count: 1 });
   }
-  if (selectedTcg.value === "digimon") {
-    return digimon.filterCards(
-      digimon.allCards.value,
-      searchQuery.value,
-      activeFilter.value,
-    );
-  }
-  return pokemon.filterCards(
-    pokemon.allCards.value,
-    searchQuery.value,
-    activeFilter.value,
-  );
+  return [...map.values()];
 });
 
 const bouncingCard = ref<string | null>(null);
@@ -148,14 +102,7 @@ function addCard(card: AnyCard) {
   chosenCards.value.push(card);
   const key = cardKey(card);
   bouncingCard.value = key;
-  setTimeout(() => {
-    if (bouncingCard.value === key) bouncingCard.value = null;
-  }, 350);
-}
-
-function addCardDesktop(card: AnyCard) {
-  if (isMobile.value) return;
-  addCard(card);
+  setTimeout(() => { if (bouncingCard.value === key) bouncingCard.value = null; }, 350);
 }
 
 function removeCard(card: AnyCard) {
@@ -173,81 +120,23 @@ function clearDeck() {
   sessionStorage.removeItem(STORAGE_NAME_KEY);
 }
 
-interface CardGroup {
-  card: AnyCard;
-  key: string;
-  count: number;
-}
-
-const groupedChosenCards = computed<CardGroup[]>(() => {
-  const map = new Map<string, CardGroup>();
-  for (const card of chosenCards.value) {
-    const k = cardKey(card);
-    const existing = map.get(k);
-    if (existing) {
-      existing.count++;
-    } else {
-      map.set(k, { card, key: k, count: 1 });
-    }
-  }
-  return [...map.values()];
-});
-
 async function saveDeck() {
   if (!deckName.value.trim() || chosenCards.value.length === 0) return;
   saving.value = true;
   try {
+    const id = sessionStorage.getItem(STORAGE_ID_KEY);
     if (selectedTcg.value === "naruto") {
-      if (sessionStorage.getItem(STORAGE_ID_KEY) !== null) {
-        await naruto.updateDeck(
-          Number(sessionStorage.getItem(STORAGE_ID_KEY)),
-          deckName.value.trim(),
-          chosenCards.value as NarutoCard[],
-        );
-      } else {
-        await naruto.saveDeck(
-          user.value!.id,
-          deckName.value.trim(),
-          chosenCards.value as NarutoCard[],
-        );
-      }
+      if (id !== null) await naruto.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as NarutoCard[]);
+      else await naruto.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as NarutoCard[]);
     } else if (selectedTcg.value === "digimon") {
-      if (sessionStorage.getItem(STORAGE_ID_KEY) !== null) {
-        await digimon.updateDeck(
-          Number(sessionStorage.getItem(STORAGE_ID_KEY)),
-          deckName.value.trim(),
-          chosenCards.value as DigimonCard[],
-        );
-      } else {
-        await digimon.saveDeck(
-          user.value!.id,
-          deckName.value.trim(),
-          chosenCards.value as DigimonCard[],
-        );
-      }
+      if (id !== null) await digimon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as DigimonCard[]);
+      else await digimon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as DigimonCard[]);
     } else {
-      if (sessionStorage.getItem(STORAGE_ID_KEY) !== null) {
-        console.log(
-          "Updating existing deck with ID",
-          sessionStorage.getItem(STORAGE_ID_KEY),
-        );
-
-        await pokemon.updateDeck(
-          Number(sessionStorage.getItem(STORAGE_ID_KEY)),
-          deckName.value.trim(),
-          chosenCards.value as PokemonCard[],
-        );
-      } else {
-        await pokemon.saveDeck(
-          user.value!.id,
-          deckName.value.trim(),
-          chosenCards.value as PokemonCard[],
-        );
-      }
+      if (id !== null) await pokemon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as PokemonCard[]);
+      else await pokemon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as PokemonCard[]);
     }
     chosenCards.value = [];
     deckName.value = "";
-    editingDeckId.value = null;
     sessionStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(STORAGE_NAME_KEY);
     sessionStorage.removeItem(STORAGE_ID_KEY);
@@ -262,342 +151,95 @@ async function importDeck() {
   try {
     const text = await navigator.clipboard.readText();
     let imported: AnyCard[];
-    if (selectedTcg.value === "naruto") {
-      imported = await naruto.parseDeckList(text);
-    } else if (selectedTcg.value === "digimon") {
-      imported = digimon.parseDeckList(text, digimon.allCards.value);
-    } else {
-      imported = await pokemon.parseDeckList(text);
-    }
-    if (imported.length > 0) {
-      chosenCards.value = imported;
-    }
+    if (selectedTcg.value === "naruto") imported = await naruto.parseDeckList(text);
+    else if (selectedTcg.value === "digimon") imported = digimon.parseDeckList(text, digimon.allCards.value);
+    else imported = await pokemon.parseDeckList(text);
+    if (imported.length > 0) chosenCards.value = imported;
   } catch (e) {
     console.error("Failed to import deck:", e);
   }
 }
 
-function cardName(card: AnyCard): string {
-  if ("Name" in card) return card.Name ?? "";
-  if ("name" in card) return card.name ?? "";
-  return "";
-}
+// Tooltip
+const tooltipImage = ref("");
+const tooltipPos = ref({ x: 0, y: 0 });
+const tooltipVisible = ref(false);
 
-// Responsive detection
+function showTooltip(card: AnyCard, event: MouseEvent) {
+  tooltipImage.value = getCardImage(card);
+  tooltipPos.value = { x: event.clientX + 16, y: event.clientY + 16 };
+  tooltipVisible.value = true;
+}
+function moveTooltip(event: MouseEvent) { tooltipPos.value = { x: event.clientX + 16, y: event.clientY + 16 }; }
+function hideTooltip() { tooltipVisible.value = false; }
+
+// Responsive
 const isNarrow = ref(window.innerWidth < 1366);
 const isMobile = ref(window.innerWidth <= 480);
 
-let lastTapTime = 0;
-let lastTapCard: AnyCard | null = null;
-let touchDidScroll = false;
-
-let previewTimer: ReturnType<typeof setTimeout> | null = null;
-
-function onTouchStart() {
-  touchDidScroll = false;
-}
-
-function onTouchMove() {
-  touchDidScroll = true;
-  if (previewTimer) {
-    clearTimeout(previewTimer);
-    previewTimer = null;
-  }
-}
-
-function onMobileTap(card: AnyCard) {
-  if (!isMobile.value) return;
-  if (touchDidScroll) return;
-  const now = Date.now();
-  const key = cardKey(card);
-  const lastKey = lastTapCard ? cardKey(lastTapCard) : null;
-  if (lastKey === key && now - lastTapTime < 400) {
-    // Double tap: add card to deck
-    if (previewTimer) {
-      clearTimeout(previewTimer);
-      previewTimer = null;
-    }
-    mobileThumbnail.value = null;
-    addCard(card);
-    lastTapCard = null;
-    lastTapTime = 0;
-  } else {
-    // Single tap: delay showing preview to allow double-tap
-    lastTapCard = card;
-    lastTapTime = now;
-    if (previewTimer) clearTimeout(previewTimer);
-    previewTimer = setTimeout(() => {
-      mobileThumbnail.value = getCardImage(card);
-      previewTimer = null;
-    }, 400);
-  }
-}
-
-function onMobileOverlayTap() {
-  const now = Date.now();
-  if (lastTapCard && now - lastTapTime < 400) {
-    // Second tap on overlay counts as double-tap to add card
-    addCard(lastTapCard);
-    mobileThumbnail.value = null;
-    lastTapCard = null;
-    lastTapTime = 0;
-  } else {
-    mobileThumbnail.value = null;
-    lastTapCard = null;
-  }
-}
-
-function onResize() {
-  isNarrow.value = window.innerWidth < 1366;
-  isMobile.value = window.innerWidth <= 480;
-  computeItemSize();
-}
-onMounted(() => {
-  window.addEventListener("resize", onResize);
-  computeItemSize();
-});
+function onResize() { isNarrow.value = window.innerWidth < 1366; isMobile.value = window.innerWidth <= 480; }
+onMounted(() => window.addEventListener("resize", onResize));
 onUnmounted(() => window.removeEventListener("resize", onResize));
 
-// Virtual scrolling
-const cardGridEl = ref<HTMLElement | null>(null);
+// Mobile interactions
+const { mobileThumbnail, onTouchStart, onTouchMove, onMobileTap, onMobileOverlayTap } =
+  useMobileInteractions(isMobile, cardKey as (c: unknown) => string, getCardImage as (c: unknown) => string, addCard as (c: unknown) => void);
 
-const TARGET_CARD_WIDTH = 130;
-const COL_GAP = 8;
-const ROW_GAP = 10;
-
-const columnCount = ref(6);
-const itemSize = ref(120);
-
-function computeItemSize() {
-  if (!cardGridEl.value) return;
-  const containerWidth = cardGridEl.value.clientWidth;
-  const cols = Math.max(
-    3,
-    Math.floor((containerWidth + COL_GAP) / (TARGET_CARD_WIDTH + COL_GAP)),
-  );
-  columnCount.value = cols;
-  const colWidth = (containerWidth - COL_GAP * (cols - 1)) / cols;
-  itemSize.value = colWidth * (7 / 5) + ROW_GAP;
-}
-
-const rowCount = computed(() =>
-  Math.ceil(filteredCards.value.length / columnCount.value),
-);
-
-const rowVirtualizer = useVirtualizer(
-  computed(() => ({
-    count: rowCount.value,
-    getScrollElement: () => cardGridEl.value,
-    estimateSize: () => itemSize.value,
-    overscan: 3,
-  })),
-);
-
-function getCardAtPosition(
-  rowIndex: number,
-  colIndex: number,
-): AnyCard | undefined {
-  return filteredCards.value[rowIndex * columnCount.value + colIndex];
-}
-
-watch([searchQuery, activeFilter, selectedTcg], () => {
-  if (cardGridEl.value) cardGridEl.value.scrollTop = 0;
-});
-
-// Draggable divider
-const splitPercent = ref(40);
-const dragging = ref(false);
-const builderEl = ref<HTMLElement | null>(null);
-
-function startDrag() {
-  dragging.value = true;
-  document.addEventListener("mousemove", onDrag);
-  document.addEventListener("mouseup", stopDrag);
-}
-
-function onDrag(e: MouseEvent) {
-  if (!dragging.value || !builderEl.value) return;
-  const rect = builderEl.value.getBoundingClientRect();
-  const isVertical = window.innerWidth < 1366;
-  let percent: number;
-  if (isVertical) {
-    percent = ((e.clientY - rect.top) / rect.height) * 100;
-    splitPercent.value = Math.max(35, Math.min(60, percent));
-  } else {
-    percent = ((e.clientX - rect.left) / rect.width) * 100;
-    splitPercent.value = Math.max(30, Math.min(60, percent));
-  }
-}
-
-function stopDrag() {
-  dragging.value = false;
-  document.removeEventListener("mousemove", onDrag);
-  document.removeEventListener("mouseup", stopDrag);
-  requestAnimationFrame(computeItemSize);
-}
-
-// Mobile drawer drag
+// Mobile drawer
 const DRAWER_HANDLE_HEIGHT = 44;
 const drawerOffset = ref(DRAWER_HANDLE_HEIGHT);
 let drawerTouchStartY = 0;
 let drawerStartOffset = 0;
-
-function getMaxDrawerOffset() {
-  return window.innerHeight * 0.5;
-}
-
+function getMaxDrawerOffset() { return window.innerHeight * 0.5; }
 function toggleDrawer() {
-  if (drawerOffset.value > DRAWER_HANDLE_HEIGHT + 20) {
-    drawerOffset.value = DRAWER_HANDLE_HEIGHT;
-  } else {
-    drawerOffset.value = getMaxDrawerOffset();
-  }
+  drawerOffset.value = drawerOffset.value > DRAWER_HANDLE_HEIGHT + 20 ? DRAWER_HANDLE_HEIGHT : getMaxDrawerOffset();
 }
-
-function onDrawerTouchStart(e: TouchEvent) {
-  drawerTouchStartY = e.touches[0].clientY;
-  drawerStartOffset = drawerOffset.value;
-}
-
+function onDrawerTouchStart(e: TouchEvent) { drawerTouchStartY = e.touches[0].clientY; drawerStartOffset = drawerOffset.value; }
 function onDrawerTouchMove(e: TouchEvent) {
   const dy = drawerTouchStartY - e.touches[0].clientY;
-  const newOffset = Math.max(
-    DRAWER_HANDLE_HEIGHT,
-    Math.min(getMaxDrawerOffset(), drawerStartOffset + dy),
-  );
-  drawerOffset.value = newOffset;
+  drawerOffset.value = Math.max(DRAWER_HANDLE_HEIGHT, Math.min(getMaxDrawerOffset(), drawerStartOffset + dy));
+}
+function onDrawerTouchEnd() {
+  drawerOffset.value = drawerOffset.value > (getMaxDrawerOffset() + DRAWER_HANDLE_HEIGHT) / 2 ? getMaxDrawerOffset() : DRAWER_HANDLE_HEIGHT;
 }
 
-function onDrawerTouchEnd() {
-  if (drawerOffset.value > (getMaxDrawerOffset() + DRAWER_HANDLE_HEIGHT) / 2) {
-    drawerOffset.value = getMaxDrawerOffset();
-  } else {
-    drawerOffset.value = DRAWER_HANDLE_HEIGHT;
-  }
-}
+// Grid ref
+const gridRef = ref<InstanceType<typeof VirtualCardGrid> | null>(null);
+watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToTop(); });
 </script>
 
 <template>
-  <div
-    ref="builderEl"
-    class="builder"
-    :class="{ dragging }"
-    :style="{
-      '--split': splitPercent + '%',
-    }"
-  >
-    <!-- Deck panel (top on narrow, right on wide) -->
-    <div
-      class="builder-panel deck-panel"
-      :style="
-        isMobile
-          ? { transform: `translateY(calc(100% - ${drawerOffset}px))` }
-          : undefined
-      "
-    >
-      <div
-        v-if="isMobile"
-        class="drawer-handle"
-        @touchstart="onDrawerTouchStart"
-        @touchmove="onDrawerTouchMove"
-        @touchend="onDrawerTouchEnd"
-        @click="toggleDrawer"
-      >
-        <div class="drawer-handle-bar" />
-      </div>
-      <div class="panel-header" @click="isMobile && toggleDrawer()">
-        <span class="panel-title">Deck ({{ chosenCards.length }})</span>
-      </div>
-
-      <div class="deck-actions">
-        <v-text-field
-          v-model="deckName"
-          variant="outlined"
-          density="compact"
-          placeholder="Deck name..."
-          hide-details
-          class="deck-name-input"
-        />
-        <v-btn
-          color="deep-purple-accent-2"
-          :disabled="!deckName.trim() || chosenCards.length === 0 || saving"
-          :loading="saving"
-          @click="saveDeck"
-        >
-          Save Deck
-        </v-btn>
-        <v-btn
-          variant="outlined"
-          color="deep-purple-accent-2"
-          @click="importDeck"
-        >
-          <v-icon start>mdi-import</v-icon>
-          Import
-        </v-btn>
-        <v-btn
-          variant="outlined"
-          color="red"
-          :disabled="chosenCards.length === 0"
-          @click="clearDeck"
-        >
-          <v-icon start>mdi-delete-sweep</v-icon>
-          Clear
-        </v-btn>
-      </div>
-
-      <div class="deck-grid">
-        <div
-          v-for="group in groupedChosenCards"
-          :key="group.key"
-          class="card-stack"
-          @click="removeCard(group.card)"
-          @mouseenter="showTooltip(group.card, $event)"
-          @mousemove="moveTooltip($event)"
-          @mouseleave="hideTooltip"
-        >
-          <!-- Narrow: single image per card -->
-          <template v-if="isNarrow">
-            <img
-              :src="getCardImage(group.card)"
-              :alt="cardName(group.card)"
-              loading="lazy"
-              class="card-image card-chosen"
-            />
-          </template>
-          <!-- Wide: stacked images -->
-          <template v-else>
-            <img
-              v-for="n in group.count"
-              :key="n"
-              :src="getCardImage(group.card)"
-              :alt="cardName(group.card)"
-              loading="lazy"
-              class="card-image card-chosen"
-              :style="{
-                position: 'absolute',
-                bottom: `${(n - 1) * 0}px`,
-                left: `${(n - 1) * 3}px`,
-                zIndex: n,
-              }"
-            />
-          </template>
-          <span v-if="group.count > 1" class="card-count">{{
-            group.count
-          }}</span>
-        </div>
-      </div>
-
-      <div v-if="chosenCards.length === 0" class="empty-state">
-        Click cards to add them to your deck
-      </div>
+  <div ref="builderEl" class="builder" :class="{ dragging }" :style="{ '--split': splitPercent + '%' }">
+    <div class="deck-wrapper">
+    <DeckPanel
+      :chosen-cards="chosenCards"
+      :grouped-chosen-cards="groupedChosenCards"
+      :deck-name="deckName"
+      :saving="saving"
+      :is-mobile="isMobile"
+      :is-narrow="isNarrow"
+      :drawer-offset="drawerOffset"
+      :get-card-image="getCardImage"
+      :card-name="cardName"
+      @update:deck-name="deckName = $event"
+      @save="saveDeck"
+      @import="importDeck"
+      @clear="clearDeck"
+      @remove-card="removeCard"
+      @card-hover="showTooltip"
+      @card-move="moveTooltip"
+      @card-leave="hideTooltip"
+      @drawer-toggle="toggleDrawer"
+      @drawer-touch-start="onDrawerTouchStart"
+      @drawer-touch-move="onDrawerTouchMove"
+      @drawer-touch-end="onDrawerTouchEnd"
+    />
     </div>
 
-    <!-- Draggable divider -->
     <div v-if="!isMobile" class="divider" @mousedown="startDrag">
       <div class="divider-handle" />
     </div>
 
-    <!-- Card pool panel (bottom on narrow, left on wide) -->
     <div class="builder-panel pool-panel">
       <div class="toolbar">
         <div class="search-wrapper">
@@ -615,14 +257,8 @@ function onDrawerTouchEnd() {
           <v-chip
             v-for="filter in filters"
             :key="filter"
-            :variant="
-              activeFilter === filter.toLowerCase() ? 'elevated' : 'outlined'
-            "
-            :color="
-              activeFilter === filter.toLowerCase()
-                ? 'deep-purple-accent-2'
-                : undefined
-            "
+            :variant="activeFilter === filter.toLowerCase() ? 'elevated' : 'outlined'"
+            :color="activeFilter === filter.toLowerCase() ? 'deep-purple-accent-2' : undefined"
             size="small"
             @click.passive="activeFilter = filter.toLowerCase()"
           >
@@ -634,85 +270,40 @@ function onDrawerTouchEnd() {
       <div v-if="isLoading" class="pool-loading">
         <v-progress-circular indeterminate color="deep-purple-accent-2" />
       </div>
-      <div v-else ref="cardGridEl" class="card-grid">
-        <div
-          :style="{
-            height: rowVirtualizer.getTotalSize() + 'px',
-            position: 'relative',
-          }"
-        >
+
+      <VirtualCardGrid
+        v-else
+        ref="gridRef"
+        :cards="filteredCards"
+        :target-card-width="130"
+        :col-gap="8"
+        :row-gap="10"
+        @card-click="(card) => !isMobile && addCard(card as AnyCard)"
+      >
+        <template #card="{ card }">
           <div
-            v-for="virtualRow in rowVirtualizer.getVirtualItems()"
-            :key="virtualRow.index"
-            class="virtual-row"
-            :style="{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: itemSize + 'px',
-              transform: `translateY(${virtualRow.start}px)`,
-              gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
-              columnGap: `${COL_GAP}px`,
-            }"
+            :class="['pool-card-slot', bouncingCard === cardKey(card as AnyCard) && 'card-bounce-active']"
+            @mouseenter="showTooltip(card as AnyCard, $event)"
+            @mousemove="moveTooltip($event)"
+            @mouseleave="hideTooltip"
+            @touchstart="onTouchStart"
+            @touchmove.passive="onTouchMove"
+            @touchend.prevent="onMobileTap(card as AnyCard)"
           >
-            <template v-for="col in columnCount" :key="col">
-              <div
-                v-if="getCardAtPosition(virtualRow.index, col - 1)"
-                :class="[
-                  'card-slot',
-                  bouncingCard ===
-                    cardKey(getCardAtPosition(virtualRow.index, col - 1)!) &&
-                    'card-bounce-active',
-                ]"
-                @click="
-                  addCardDesktop(getCardAtPosition(virtualRow.index, col - 1)!)
-                "
-                @mouseenter="
-                  showTooltip(
-                    getCardAtPosition(virtualRow.index, col - 1)!,
-                    $event,
-                  )
-                "
-                @mousemove="moveTooltip($event)"
-                @mouseleave="hideTooltip"
-                @touchstart="onTouchStart"
-                @touchmove.passive="onTouchMove"
-                @touchend.prevent="
-                  onMobileTap(getCardAtPosition(virtualRow.index, col - 1)!)
-                "
-              >
-                <img
-                  :src="
-                    getCardImage(getCardAtPosition(virtualRow.index, col - 1)!)
-                  "
-                  :alt="cardName(getCardAtPosition(virtualRow.index, col - 1)!)"
-                  loading="lazy"
-                  class="card-image"
-                />
-              </div>
-              <div v-else class="card-slot" />
-            </template>
+            <img
+              :src="getCardImage(card as AnyCard)"
+              :alt="cardName(card as AnyCard)"
+              loading="lazy"
+              class="card-image"
+            />
           </div>
-        </div>
-      </div>
+        </template>
+      </VirtualCardGrid>
     </div>
 
-    <!-- Card tooltip (desktop) -->
-    <div
-      v-if="tooltipVisible && tooltipImage"
-      class="card-tooltip"
-      :style="{ top: tooltipPos.y + 'px', left: tooltipPos.x + 'px' }"
-    >
-      <img :src="tooltipImage" class="card-tooltip-img" />
-    </div>
+    <CardTooltip :visible="tooltipVisible" :image="tooltipImage" :position="tooltipPos" />
 
-    <!-- Mobile thumbnail overlay -->
-    <div
-      v-if="mobileThumbnail"
-      class="mobile-thumbnail-overlay"
-      @click="onMobileOverlayTap"
-    >
+    <div v-if="mobileThumbnail" class="mobile-thumbnail-overlay" @click="onMobileOverlayTap">
       <img :src="mobileThumbnail" class="mobile-thumbnail-img" />
     </div>
   </div>
@@ -726,396 +317,40 @@ function onDrawerTouchEnd() {
   height: calc(100vh - 64px);
   box-sizing: border-box;
 }
+.builder.dragging { user-select: none; cursor: col-resize; }
+.pool-panel { flex: none; width: var(--split); order: 1; }
+.deck-wrapper { flex: 1; min-width: 0; order: 3; display: flex; }
+.divider { order: 2; width: 12px; display: flex; align-items: center; justify-content: center; cursor: col-resize; flex-shrink: 0; }
+.divider-handle { width: 4px; height: 48px; background: var(--border); border-radius: 2px; transition: background 0.2s; }
+.divider:hover .divider-handle { background: var(--accent); }
+.builder-panel { display: flex; flex-direction: column; gap: 12px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 16px; padding: 14px 12px; box-shadow: var(--shadow); overflow: hidden; }
+.toolbar { display: flex; flex-direction: column; gap: 12px; }
+.search-wrapper { max-width: 320px; }
+.search-input { font-family: var(--sans); }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.pool-loading { flex: 1; display: flex; align-items: center; justify-content: center; }
+.pool-card-slot { width: 100%; height: 100%; }
+@keyframes bounce-in { 0% { transform: scale(1, 1); } 40% { transform: scale(0.88, 0.92); } 70% { transform: scale(1.08, 1.02); } 100% { transform: scale(1, 1); } }
+.card-bounce-active { animation: bounce-in 0.35s ease-out; z-index: 10; }
+.card-image { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; transition: box-shadow 0.2s; }
+.card-image:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 
-.builder.dragging {
-  user-select: none;
-  cursor: col-resize;
-}
-
-/* Wide layout: pool left, deck right */
-.pool-panel {
-  flex: none;
-  width: var(--split);
-  order: 1;
-}
-
-.divider {
-  order: 2;
-  width: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: col-resize;
-  flex-shrink: 0;
-}
-
-.divider-handle {
-  width: 4px;
-  height: 48px;
-  background: var(--border);
-  border-radius: 2px;
-  transition: background 0.2s;
-}
-
-.divider:hover .divider-handle {
-  background: var(--accent);
-}
-
-.deck-panel {
-  flex: 1;
-  min-width: 0;
-  order: 3;
-}
-
-.builder-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: var(--code-bg);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px 12px;
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.search-wrapper {
-  max-width: 320px;
-}
-
-.search-input {
-  font-family: var(--sans);
-}
-
-.filters {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-}
-
-.panel-title {
-  font-family: var(--heading);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-h);
-}
-
-.deck-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.deck-name-input {
-  max-width: 240px;
-  font-family: var(--sans);
-}
-
-.card-grid {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.virtual-row {
-  display: grid;
-  align-items: start;
-  overflow: hidden;
-}
-
-.pool-loading {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.card-slot {
-  aspect-ratio: 5 / 7;
-  overflow: hidden;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-@keyframes bounce-in {
-  0% {
-    transform: scale(1, 1);
-  }
-  40% {
-    transform: scale(0.88, 0.92);
-  }
-  70% {
-    transform: scale(1.08, 1.02);
-  }
-  100% {
-    transform: scale(1, 1);
-  }
-}
-
-.card-bounce-active {
-  animation: bounce-in 0.35s ease-out;
-  z-index: 10;
-}
-
-.card-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 4px;
-  transition: box-shadow 0.2s;
-}
-
-.card-image:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.deck-grid .card-image:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.card-stack:has(.card-image:hover) {
-  z-index: 10;
-}
-
-.card-stack .card-image {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: top left;
-}
-
-.deck-grid {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  grid-auto-rows: min-content;
-  gap: 12px 16px;
-  overflow-y: auto;
-  padding-right: 12px;
-  padding-bottom: 20px;
-}
-
-.card-stack {
-  position: relative;
-  aspect-ratio: 5 / 7;
-  min-height: 0;
-  cursor: pointer;
-}
-
-.card-count {
-  position: absolute;
-  bottom: 15%;
-  right: 10%;
-  background: #7c4dff;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 22px;
-  height: 22px;
-  border-radius: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 0 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: var(--text);
-  opacity: 0.6;
-}
-
-.card-tooltip {
-  position: fixed;
-  z-index: 9999;
-  pointer-events: none;
-  width: 300px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-
-.card-tooltip-img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 8px;
-}
-
-/* Narrow layout: deck on top, pool on bottom, vertical split */
 @media (max-width: 1365px) {
-  .builder {
-    flex-direction: column;
-  }
-
-  .builder.dragging {
-    cursor: row-resize;
-  }
-
-  .deck-panel {
-    order: 1;
-    flex: none;
-    height: var(--split);
-  }
-
-  .divider {
-    order: 2;
-    width: 100%;
-    height: 12px;
-    cursor: row-resize;
-  }
-
-  .divider-handle {
-    width: 48px;
-    height: 4px;
-  }
-
-  .pool-panel {
-    order: 3;
-    flex: 1;
-    width: auto;
-    min-height: 0;
-  }
-
-  .card-grid {
-    overflow-y: auto;
-  }
-
-  .deck-grid {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    grid-auto-rows: min-content;
-    overflow-y: auto;
-  }
-
-  .card-stack {
-    aspect-ratio: 5 / 7;
-  }
-
-  .card-stack .card-image {
-    position: relative;
-    object-fit: cover;
-    object-position: center;
-  }
+  .builder { flex-direction: column; }
+  .builder.dragging { cursor: row-resize; }
+  .deck-wrapper { order: 1; flex: none; height: var(--split); }
+  .divider { order: 2; width: 100%; height: 12px; cursor: row-resize; }
+  .divider-handle { width: 48px; height: 4px; }
+  .pool-panel { order: 3; flex: 1; width: auto; min-height: 0; }
 }
 
-/* Mobile layout: collapsible deck drawer */
 @media (max-width: 480px) {
-  .builder {
-    flex-direction: column;
-    padding: 8px;
-    padding-bottom: 0;
-    height: calc(100vh - 76px);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .divider {
-    display: none;
-  }
-
-  .pool-panel {
-    order: 1;
-    flex: 1;
-    min-height: 0;
-    border-radius: 12px;
-    padding: 8px 4px;
-    margin-bottom: 48px;
-    overflow: hidden;
-  }
-
-  .deck-panel {
-    position: absolute;
-    bottom: env(safe-area-inset-bottom, 20px);
-    left: 0;
-    right: 0;
-    height: 50%;
-    max-height: 50%;
-    border-radius: 16px 16px 0 0;
-    padding: 10px 8px;
-    transition: transform 0.2s ease;
-    z-index: 100;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  .card-grid {
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0;
-  }
-
-  .deck-grid {
-    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-    gap: 6px 6px;
-    padding-right: 4px;
-  }
-
-  .deck-actions {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .deck-name-input {
-    max-width: 100%;
-    flex: 1 1 100%;
-  }
-
-  .search-wrapper {
-    max-width: 100%;
-  }
-
-  .card-tooltip {
-    display: none;
-  }
-
-  .mobile-thumbnail-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
-  }
-
-  .mobile-thumbnail-img {
-    width: 70%;
-    max-width: 280px;
-    border-radius: 10px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  }
-
-  .drawer-handle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 18px 0 4px;
-    cursor: pointer;
-  }
-
-  .drawer-handle-bar {
-    width: 36px;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-  }
+  .builder { flex-direction: column; padding: 8px; padding-bottom: 0; height: calc(100vh - 76px); position: relative; overflow: hidden; }
+  .divider { display: none; }
+  .deck-wrapper { position: absolute; bottom: env(safe-area-inset-bottom, 20px); left: 0; right: 0; height: 50%; max-height: 50%; z-index: 100; order: unset; flex: unset; }
+  .pool-panel { order: 1; flex: 1; min-height: 0; border-radius: 12px; padding: 8px 4px; margin-bottom: 48px; overflow: hidden; }
+  .search-wrapper { max-width: 100%; }
+  .mobile-thumbnail-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); }
+  .mobile-thumbnail-img { width: 70%; max-width: 280px; border-radius: 10px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
 }
 </style>

@@ -102,6 +102,7 @@ export interface NarutoCard {
   rarity: string;
   card_number: string;
   set: string;
+  tags: string[];
 }
 
 export interface NarutoDeckEntry {
