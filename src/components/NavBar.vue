@@ -20,7 +20,6 @@ const navItems = [
 
 const tcgOptions: { label: string; value: TcgType }[] = [
   { label: "Pokémon", value: "pokemon" },
-  { label: "Digimon", value: "digimon" },
   { label: "Naruto Mythos", value: "naruto" },
 ];
 const tcgMenuOpen = ref(false);
@@ -52,10 +51,7 @@ const tcgLabel = () =>
         </button>
       </div>
     </div>
-    <button
-      class="burger-btn"
-      @click="mobileMenuOpen = !mobileMenuOpen"
-    >
+    <button class="burger-btn" @click="mobileMenuOpen = !mobileMenuOpen">
       <v-icon :icon="mobileMenuOpen ? 'mdi-close' : 'mdi-menu'" />
     </button>
     <div class="nav-links">
@@ -100,7 +96,11 @@ const tcgLabel = () =>
   </nav>
   <Teleport to="body">
     <Transition name="sidebar">
-      <div v-if="mobileMenuOpen" class="sidebar-overlay" @click="mobileMenuOpen = false">
+      <div
+        v-if="mobileMenuOpen"
+        class="sidebar-overlay"
+        @click="mobileMenuOpen = false"
+      >
         <div class="sidebar" @click.stop>
           <template v-for="item in navItems" :key="item.path">
             <template v-if="item.adminOnly">
