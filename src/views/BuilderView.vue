@@ -21,6 +21,7 @@ type AnyCard = PokemonCard | NarutoCard | DigimonCard;
 const STORAGE_KEY = "builder-deck";
 const STORAGE_NAME_KEY = "builder-deck-name";
 const STORAGE_ID_KEY = "builder-deck-id";
+const STORAGE_COVER_KEY = "builder-deck-cover";
 
 const { user } = useUser();
 const { selectedTcg } = useTcgState();
@@ -77,17 +78,46 @@ const isLoading = computed(() => {
 watch(chosenCards, (val) => sessionStorage.setItem(STORAGE_KEY, JSON.stringify(val)), { deep: true });
 watch(deckName, (val) => sessionStorage.setItem(STORAGE_NAME_KEY, val));
 
-const filteredCards = computed(() => {
+const allFilteredCards = computed(() => {
   if (selectedTcg.value === "naruto") return naruto.filterCards(naruto.allCards.value, searchQuery.value, activeFilter.value);
   if (selectedTcg.value === "digimon") return digimon.filterCards(digimon.allCards.value, searchQuery.value, activeFilter.value);
   return pokemon.filterCards(pokemon.allCards.value, searchQuery.value, activeFilter.value);
 });
 
+const filteredMissionCards = computed(() =>
+  selectedTcg.value === "naruto"
+    ? (allFilteredCards.value as NarutoCard[]).filter(c => c.group?.toLowerCase() === "mission")
+    : []
+);
+
+const filteredCards = computed(() =>
+  selectedTcg.value === "naruto"
+    ? (allFilteredCards.value as NarutoCard[]).filter(c => c.group?.toLowerCase() !== "mission")
+    : allFilteredCards.value
+);
+
 interface CardGroup { card: AnyCard; key: string; count: number; }
+
+function isMissionCard(card: AnyCard): boolean {
+  return selectedTcg.value === "naruto" && (card as NarutoCard).group?.toLowerCase() === "mission";
+}
 
 const groupedChosenCards = computed<CardGroup[]>(() => {
   const map = new Map<string, CardGroup>();
   for (const card of chosenCards.value) {
+    if (isMissionCard(card)) continue;
+    const k = cardKey(card);
+    const existing = map.get(k);
+    if (existing) existing.count++;
+    else map.set(k, { card, key: k, count: 1 });
+  }
+  return [...map.values()];
+});
+
+const groupedMissionCards = computed<CardGroup[]>(() => {
+  const map = new Map<string, CardGroup>();
+  for (const card of chosenCards.value) {
+    if (!isMissionCard(card)) continue;
     const k = cardKey(card);
     const existing = map.get(k);
     if (existing) existing.count++;
@@ -118,6 +148,7 @@ function clearDeck() {
   sessionStorage.removeItem(STORAGE_KEY);
   sessionStorage.removeItem(STORAGE_ID_KEY);
   sessionStorage.removeItem(STORAGE_NAME_KEY);
+  sessionStorage.removeItem(STORAGE_COVER_KEY);
 }
 
 async function saveDeck() {
@@ -125,21 +156,24 @@ async function saveDeck() {
   saving.value = true;
   try {
     const id = sessionStorage.getItem(STORAGE_ID_KEY);
+    const cover = sessionStorage.getItem(STORAGE_COVER_KEY)
+      || String(chosenCards.value[0]?.ID);
     if (selectedTcg.value === "naruto") {
-      if (id !== null) await naruto.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as NarutoCard[]);
-      else await naruto.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as NarutoCard[]);
+      if (id !== null) await naruto.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as NarutoCard[], cover);
+      else await naruto.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as NarutoCard[], cover);
     } else if (selectedTcg.value === "digimon") {
-      if (id !== null) await digimon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as DigimonCard[]);
-      else await digimon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as DigimonCard[]);
+      if (id !== null) await digimon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as DigimonCard[], cover);
+      else await digimon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as DigimonCard[], cover);
     } else {
-      if (id !== null) await pokemon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as PokemonCard[]);
-      else await pokemon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as PokemonCard[]);
+      if (id !== null) await pokemon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as PokemonCard[], cover);
+      else await pokemon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as PokemonCard[], cover);
     }
     chosenCards.value = [];
     deckName.value = "";
     sessionStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(STORAGE_NAME_KEY);
     sessionStorage.removeItem(STORAGE_ID_KEY);
+    sessionStorage.removeItem(STORAGE_COVER_KEY);
   } catch (e) {
     console.error("Failed to save deck:", e);
   } finally {
@@ -214,6 +248,7 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
     <DeckPanel
       :chosen-cards="chosenCards"
       :grouped-chosen-cards="groupedChosenCards"
+      :grouped-mission-cards="groupedMissionCards"
       :deck-name="deckName"
       :saving="saving"
       :is-mobile="isMobile"
@@ -271,34 +306,57 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
         <v-progress-circular indeterminate color="deep-purple-accent-2" />
       </div>
 
-      <VirtualCardGrid
-        v-else
-        ref="gridRef"
-        :cards="filteredCards"
-        :target-card-width="130"
-        :col-gap="8"
-        :row-gap="10"
-        @card-click="(card) => !isMobile && addCard(card as AnyCard)"
-      >
-        <template #card="{ card }">
-          <div
-            :class="['pool-card-slot', bouncingCard === cardKey(card as AnyCard) && 'card-bounce-active']"
-            @mouseenter="showTooltip(card as AnyCard, $event)"
-            @mousemove="moveTooltip($event)"
-            @mouseleave="hideTooltip"
-            @touchstart="onTouchStart"
-            @touchmove.passive="onTouchMove"
-            @touchend.prevent="onMobileTap(card as AnyCard)"
-          >
-            <img
-              :src="getCardImage(card as AnyCard)"
-              :alt="cardName(card as AnyCard)"
-              loading="lazy"
-              class="card-image"
-            />
-          </div>
-        </template>
-      </VirtualCardGrid>
+      <VirtualCardGrid v-else
+          ref="gridRef"
+          :cards="filteredCards"
+          :target-card-width="130"
+          :col-gap="8"
+          :row-gap="10"
+          @card-click="(card) => !isMobile && addCard(card as AnyCard)"
+        >
+          <template v-if="filteredMissionCards.length > 0" #header>
+            <div class="pool-mission-label">Missions</div>
+            <div class="pool-mission-row">
+              <div
+                v-for="card in filteredMissionCards"
+                :key="cardKey(card as AnyCard)"
+                :class="['pool-mission-slot', bouncingCard === cardKey(card as AnyCard) && 'card-bounce-active']"
+                @click="!isMobile && addCard(card as AnyCard)"
+                @mouseenter="showTooltip(card as AnyCard, $event)"
+                @mousemove="moveTooltip($event)"
+                @mouseleave="hideTooltip"
+                @touchstart="onTouchStart"
+                @touchmove.passive="onTouchMove"
+                @touchend.prevent="onMobileTap(card as AnyCard)"
+              >
+                <img
+                  :src="getCardImage(card as AnyCard)"
+                  :alt="cardName(card as AnyCard)"
+                  loading="lazy"
+                  class="card-image"
+                />
+              </div>
+            </div>
+          </template>
+          <template #card="{ card }">
+            <div
+              :class="['pool-card-slot', bouncingCard === cardKey(card as AnyCard) && 'card-bounce-active']"
+              @mouseenter="showTooltip(card as AnyCard, $event)"
+              @mousemove="moveTooltip($event)"
+              @mouseleave="hideTooltip"
+              @touchstart="onTouchStart"
+              @touchmove.passive="onTouchMove"
+              @touchend.prevent="onMobileTap(card as AnyCard)"
+            >
+              <img
+                :src="getCardImage(card as AnyCard)"
+                :alt="cardName(card as AnyCard)"
+                loading="lazy"
+                class="card-image"
+              />
+            </div>
+          </template>
+        </VirtualCardGrid>
     </div>
 
     <CardTooltip :visible="tooltipVisible" :image="tooltipImage" :position="tooltipPos" />
@@ -334,6 +392,32 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
 .card-bounce-active { animation: bounce-in 0.35s ease-out; z-index: 10; }
 .card-image { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; transition: box-shadow 0.2s; }
 .card-image:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+
+.pool-mission-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.6;
+  padding: 2px 0 4px;
+}
+
+.pool-mission-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.pool-mission-slot {
+  height: 90px;
+  aspect-ratio: 7 / 5;
+  cursor: pointer;
+  flex-shrink: 0;
+}
 
 @media (max-width: 1365px) {
   .builder { flex-direction: column; }

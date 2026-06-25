@@ -22,7 +22,7 @@ type AnyCard = PokemonCard | NarutoCard | DigimonCard;
 const router = useRouter();
 const { user } = useUser();
 const { selectedTcg } = useTcgState();
-const { getBlob } = useApi();
+const { getBlob, post } = useApi();
 
 const pokemonDecks = usePokemonDecks(() => user.value?.id);
 const narutoDecks = useNarutoDecks(() => user.value?.id);
@@ -64,6 +64,21 @@ async function deleteDeckLocal(id: number) {
   return pokemonDecks.deleteDeck(id);
 }
 
+async function updateCoverCardLocal(deckId: number, cardId: number) {
+  if (selectedTcg.value === "naruto")
+    return narutoDecks.updateCoverCard(deckId, cardId);
+  if (selectedTcg.value === "digimon")
+    return digimonDecks.updateCoverCard(deckId, cardId);
+  return pokemonDecks.updateCoverCard(deckId, cardId);
+}
+
+function deckCardCount(deck: AnyDeck): number {
+  if (selectedTcg.value !== "naruto") return deck.entries?.length ?? 0;
+  return (deck.entries ?? []).filter(
+    (e) => (e.card as NarutoCard).group?.toLowerCase() !== "mission",
+  ).length;
+}
+
 function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -74,11 +89,44 @@ function formatDate(date: Date | string): string {
 
 const dialogOpen = ref(false);
 const selectedDeck = ref<AnyDeck | null>(null);
+const choosingCover = ref(false);
+
+function isNarutoMission(card: AnyCard): boolean {
+  return (
+    selectedTcg.value === "naruto" &&
+    (card as NarutoCard).group?.toLowerCase() === "mission"
+  );
+}
 
 const groupedEntries = computed(() => {
   if (!selectedDeck.value?.entries) return [];
   const map = new Map<number, { card: AnyCard; count: number }>();
   for (const entry of selectedDeck.value.entries) {
+    if (isNarutoMission(entry.card)) continue;
+    const id = entry.card.ID;
+    if (map.has(id)) {
+      map.get(id)!.count++;
+    } else {
+      map.set(id, { card: entry.card, count: 1 });
+    }
+  }
+  const typeOrder = (card: AnyCard): number => {
+    const t = ((card as any).CardType ?? "").toLowerCase();
+    if (t === "pokemon" || t === "pokémon") return 0;
+    if (t === "trainer") return 1;
+    if (t === "energy" || t === "energie") return 2;
+    return 3;
+  };
+  return Array.from(map.values()).sort(
+    (a, b) => typeOrder(a.card) - typeOrder(b.card),
+  );
+});
+
+const groupedMissionEntries = computed(() => {
+  if (!selectedDeck.value?.entries) return [];
+  const map = new Map<number, { card: AnyCard; count: number }>();
+  for (const entry of selectedDeck.value.entries) {
+    if (!isNarutoMission(entry.card)) continue;
     const id = entry.card.ID;
     if (map.has(id)) {
       map.get(id)!.count++;
@@ -91,7 +139,16 @@ const groupedEntries = computed(() => {
 
 function openDeck(deck: AnyDeck) {
   selectedDeck.value = deck;
+  choosingCover.value = false;
   dialogOpen.value = true;
+}
+
+function selectCoverCard(card: AnyCard) {
+  if (!selectedDeck.value || !choosingCover.value) return;
+  const deck = selectedDeck.value;
+  deck.cover = String(card.ID);
+  choosingCover.value = false;
+  updateCoverCardLocal(deck.ID, card.ID);
 }
 
 function editDeck() {
@@ -102,6 +159,7 @@ function editDeck() {
   );
   sessionStorage.setItem("builder-deck-name", selectedDeck.value.name);
   sessionStorage.setItem("builder-deck-id", String(selectedDeck.value.ID));
+  sessionStorage.setItem("builder-deck-cover", selectedDeck.value.cover ?? "");
   dialogOpen.value = false;
   router.push({ name: "Builder", params: { deckId: selectedDeck.value.ID } });
 }
@@ -113,6 +171,25 @@ async function copyAsText() {
   const text = buildDeckText(selectedDeck.value);
   await navigator.clipboard.writeText(text);
   shareMenuOpen.value = false;
+}
+
+const cardmarketOpen = ref(false);
+const cardmarketText = ref("");
+
+async function copyForCardmarket() {
+  if (!selectedDeck.value) return;
+  const cards = selectedDeck.value.entries.map((e) => {
+    const c = e.card as PokemonCard;
+    return { id: c.ID, code: c.Code, card_number: c.CardNumber };
+  });
+  const response = await post<{ cards: string }>("/auth/pokemon/decks/cardmarket", { cards });
+  cardmarketText.value = response?.cards ?? "";
+  shareMenuOpen.value = false;
+  cardmarketOpen.value = true;
+}
+
+async function copyCardmarketToClipboard() {
+  await navigator.clipboard.writeText(cardmarketText.value);
 }
 
 async function copyAsImage() {
@@ -130,6 +207,31 @@ async function copyAsImage() {
     newTab.location.href = url;
   }
   shareMenuOpen.value = false;
+}
+
+const testhandOpen = ref(false);
+const testhandCards = ref<AnyCard[]>([]);
+const testhandKeepingCards = ref<AnyCard[]>([]);
+
+function drawTesthand() {
+  if (!selectedDeck.value?.entries.length) return;
+  const arr = selectedDeck.value.entries.map((e) => e.card);
+  // Fisher-Yates shuffle
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  if (selectedTcg.value === "pokemon") {
+    testhandCards.value = arr.slice(-7);
+    testhandKeepingCards.value = [];
+  } else if (selectedTcg.value === "naruto") {
+    testhandCards.value = arr.slice(-7, -2);
+    testhandKeepingCards.value = arr.slice(-2);
+  } else {
+    testhandCards.value = arr.slice(-5);
+    testhandKeepingCards.value = [];
+  }
+  testhandOpen.value = true;
 }
 
 function duplicateDeck() {
@@ -167,7 +269,7 @@ function deleteDeck() {
         <div class="deck-info">
           <span class="deck-name">{{ deck.name }}</span>
           <span class="deck-meta">
-            {{ deck.entries?.length ?? 0 }} cards ·
+            {{ deckCardCount(deck) }} cards ·
             {{ formatDate(deck.CreatedAt) }}
           </span>
         </div>
@@ -181,20 +283,55 @@ function deleteDeck() {
           {{ selectedDeck?.name }}
         </v-card-title>
         <v-card-text class="dialog-meta">
-          {{ selectedDeck?.entries?.length ?? 0 }} cards · Created
+          {{ selectedDeck ? deckCardCount(selectedDeck) : 0 }} cards · Created
           {{ selectedDeck ? formatDate(selectedDeck.CreatedAt) : "" }}
         </v-card-text>
-        <div class="dialog-card-grid">
+        <div v-if="choosingCover" class="cover-hint">
+          Click a card to set it as the deck cover
+        </div>
+        <template v-if="groupedMissionEntries.length > 0">
+          <div class="mission-section-label">Missions</div>
+          <div
+            :class="[
+              'dialog-mission-grid',
+              { 'choosing-cover': choosingCover },
+            ]"
+          >
+            <div
+              v-for="group in groupedMissionEntries"
+              :key="group.card.ID"
+              class="dialog-mission-slot"
+              @click="selectCoverCard(group.card)"
+            >
+              <img
+                v-if="getCardImage(group.card)"
+                :src="getCardImage(group.card)"
+                :alt="
+                  (group.card as any).Name ?? (group.card as any).name ?? ''
+                "
+                :class="[
+                  'dialog-mission-img',
+                  { 'cover-candidate': choosingCover },
+                ]"
+              />
+              <span v-if="group.count > 1" class="dialog-card-count">
+                {{ group.count }}
+              </span>
+            </div>
+          </div>
+        </template>
+        <div :class="['dialog-card-grid', { 'choosing-cover': choosingCover }]">
           <div
             v-for="group in groupedEntries"
             :key="group.card.ID"
             class="dialog-card-slot"
+            @click="selectCoverCard(group.card)"
           >
             <img
               v-if="getCardImage(group.card)"
               :src="getCardImage(group.card)"
               :alt="(group.card as any).Name ?? (group.card as any).name ?? ''"
-              class="dialog-card-img"
+              :class="['dialog-card-img', { 'cover-candidate': choosingCover }]"
             />
             <span v-if="group.count > 1" class="dialog-card-count">
               {{ group.count }}
@@ -206,6 +343,17 @@ function deleteDeck() {
           <v-btn icon variant="tonal" @click="editDeck">
             <v-icon icon="mdi-pencil" />
             <v-tooltip activator="parent" location="bottom">Edit</v-tooltip>
+          </v-btn>
+          <v-btn
+            icon
+            :variant="choosingCover ? 'flat' : 'tonal'"
+            :color="choosingCover ? 'primary' : undefined"
+            @click="choosingCover = !choosingCover"
+          >
+            <v-icon>mdi-image-edit</v-icon>
+            <v-tooltip activator="parent" location="bottom"
+              >Choose Cover Card</v-tooltip
+            >
           </v-btn>
           <v-menu v-model="shareMenuOpen" location="bottom">
             <template #activator="{ props }">
@@ -227,9 +375,20 @@ function deleteDeck() {
                 <v-list-item prepend-icon="mdi-image" @click="copyAsImage">
                   <v-list-item-title>Copy as Image</v-list-item-title>
                 </v-list-item>
+                <v-list-item
+                  v-if="selectedTcg === 'pokemon'"
+                  prepend-icon="mdi-cart"
+                  @click="copyForCardmarket"
+                >
+                  <v-list-item-title>Cardmarket</v-list-item-title>
+                </v-list-item>
               </v-list>
             </v-card>
           </v-menu>
+          <v-btn icon variant="tonal" @click="drawTesthand">
+            <v-icon>mdi-cards-playing</v-icon>
+            <v-tooltip activator="parent" location="bottom">Testhand</v-tooltip>
+          </v-btn>
           <v-btn icon variant="tonal" @click="duplicateDeck">
             <v-icon>mdi-content-copy</v-icon>
             <v-tooltip activator="parent" location="bottom"
@@ -245,6 +404,91 @@ function deleteDeck() {
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="dialogOpen = false">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Testhand dialog -->
+    <v-dialog
+      v-model="testhandOpen"
+      max-width="70vw"
+      :width="$vuetify.display.smAndDown ? '95vw' : undefined"
+    >
+      <v-card rounded="xl">
+        <v-card-title class="dialog-title">Testhand</v-card-title>
+        <v-card-text class="dialog-meta">
+          {{ testhandCards.length }} random cards from your deck
+        </v-card-text>
+        <div
+          class="testhand-grid"
+          :style="{
+            gridTemplateColumns: `repeat(${testhandCards.length}, 1fr)`,
+          }"
+        >
+          <div
+            v-for="(card, i) in testhandCards"
+            :key="i"
+            class="dialog-card-slot"
+          >
+            <img
+              v-if="getCardImage(card)"
+              :src="getCardImage(card)"
+              :alt="(card as any).Name ?? (card as any).name ?? ''"
+              class="dialog-card-img"
+            />
+          </div>
+        </div>
+        <template v-if="testhandKeepingCards.length">
+          <div class="testhand-section-label">When keeping</div>
+          <div class="testhand-grid testhand-keeping">
+            <div
+              v-for="(card, i) in testhandKeepingCards"
+              :key="i"
+              class="dialog-card-slot"
+            >
+              <img
+                v-if="getCardImage(card)"
+                :src="getCardImage(card)"
+                :alt="(card as any).Name ?? (card as any).name ?? ''"
+                class="dialog-card-img"
+              />
+            </div>
+          </div>
+        </template>
+        <v-divider />
+        <v-card-actions>
+          <v-btn
+            variant="tonal"
+            prepend-icon="mdi-refresh"
+            @click="drawTesthand"
+            >Redraw</v-btn
+          >
+          <v-spacer />
+          <v-btn variant="text" @click="testhandOpen = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Cardmarket dialog -->
+    <v-dialog v-model="cardmarketOpen" max-width="520">
+      <v-card rounded="xl">
+        <v-card-title class="dialog-title">Cardmarket Decklist</v-card-title>
+        <v-card-text>
+          <v-textarea
+            :model-value="cardmarketText"
+            readonly
+            rows="12"
+            variant="outlined"
+            hide-details
+            class="cardmarket-textarea"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-btn variant="tonal" prepend-icon="mdi-clipboard" @click="copyCardmarketToClipboard">
+            Copy to Clipboard
+          </v-btn>
+          <v-spacer />
+          <v-btn variant="text" @click="cardmarketOpen = false">Close</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -393,5 +637,132 @@ function deleteDeck() {
   gap: 8px;
   padding: 12px 16px;
   justify-content: center;
+}
+
+.cover-hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text);
+  padding: 6px 16px 0;
+  opacity: 0.8;
+}
+
+.dialog-card-grid.choosing-cover {
+  cursor: pointer;
+}
+
+.dialog-card-img.cover-candidate {
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s,
+    outline 0.1s;
+}
+
+.dialog-card-img.cover-candidate:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 3px #7c4dff,
+    0 4px 12px rgba(0, 0, 0, 0.5);
+  outline: none;
+  z-index: 1;
+  position: relative;
+}
+
+.testhand-grid {
+  display: grid;
+  gap: 12px;
+  padding: 16px 20px;
+  margin: 8px 20px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+@media (max-width: 600px) {
+  .testhand-grid {
+    gap: 5px;
+    padding: 8px;
+    margin: 4px 8px;
+  }
+
+  .testhand-keeping .dialog-card-slot {
+    flex: 0 0 calc((100% - 5px) / 2);
+  }
+}
+
+.testhand-keeping {
+  display: flex;
+  justify-content: center;
+  border-color: rgba(124, 77, 255, 0.5);
+  background: rgba(124, 77, 255, 0.08);
+}
+
+.testhand-keeping .dialog-card-slot {
+  flex: 0 0 calc((100% - 12px * 4) / 5);
+}
+
+.testhand-section-label {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c4dff;
+  margin: 4px 16px 0;
+  padding: 6px 0 2px;
+  border-top: 1px solid rgba(124, 77, 255, 0.3);
+}
+
+.mission-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text, #aaa);
+  opacity: 0.7;
+  margin: 4px 16px 0;
+  padding: 6px 0 4px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.dialog-mission-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  margin: 0 16px 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.dialog-mission-grid.choosing-cover {
+  cursor: pointer;
+}
+
+.dialog-mission-slot {
+  position: relative;
+  height: 80px;
+  aspect-ratio: 7 / 5;
+}
+
+.dialog-mission-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.dialog-mission-img.cover-candidate {
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.dialog-mission-img.cover-candidate:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 3px #7c4dff,
+    0 4px 12px rgba(0, 0, 0, 0.5);
 }
 </style>

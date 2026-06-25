@@ -87,11 +87,12 @@ export function useDigimonBuilder() {
     userId: string,
     name: string,
     cards: DigimonCard[],
+    cover?: string,
   ): Promise<void> {
-    console.log("saving digimon deck with cards: ", cards);
     await post("/auth/digimon/decks/create", {
       UserId: userId,
       Name: name,
+      CoverCard: cover,
       Entries: cards.map((card) => ({ CardId: card.ID })),
     });
   }
@@ -100,11 +101,13 @@ export function useDigimonBuilder() {
     deckId: number,
     name: string,
     cards: DigimonCard[],
+    cover?: string,
   ): Promise<void> {
     await put(`/auth/digimon/decks/${deckId}/update`, {
       DeckId: deckId,
       Name: name,
       Entries: cards.map((card) => ({ CardId: card.ID })),
+      CoverCard: cover,
     });
   }
 

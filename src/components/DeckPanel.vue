@@ -12,6 +12,7 @@ interface CardGroup {
 defineProps<{
   chosenCards: AnyCard[];
   groupedChosenCards: CardGroup[];
+  groupedMissionCards: CardGroup[];
   deckName: string;
   saving: boolean;
   isMobile: boolean;
@@ -58,7 +59,7 @@ const emit = defineEmits<{
     </div>
 
     <div class="panel-header" @click="isMobile && emit('drawer-toggle')">
-      <span class="panel-title">Deck ({{ chosenCards.length }})</span>
+      <span class="panel-title">Deck ({{ groupedChosenCards.reduce((s, g) => s + g.count, 0) }})</span>
     </div>
 
     <div class="deck-actions">
@@ -137,6 +138,31 @@ const emit = defineEmits<{
         }}</span>
       </div>
     </div>
+
+    <template v-if="groupedMissionCards.length > 0">
+      <div class="mission-section-label">Missions</div>
+      <div class="mission-grid">
+        <div
+          v-for="group in groupedMissionCards"
+          :key="group.key"
+          class="mission-card-stack"
+          @click="emit('remove-card', group.card)"
+          @mouseenter="emit('card-hover', group.card, $event)"
+          @mousemove="emit('card-move', $event)"
+          @mouseleave="emit('card-leave')"
+        >
+          <img
+            :src="getCardImage(group.card)"
+            :alt="cardName(group.card)"
+            loading="lazy"
+            class="mission-card-image"
+          />
+          <span v-if="group.count > 1" class="card-count mission-card-count">{{
+            group.count
+          }}</span>
+        </div>
+      </div>
+    </template>
 
     <div v-if="chosenCards.length === 0" class="empty-state">
       Click cards to add them to your deck
@@ -255,6 +281,50 @@ const emit = defineEmits<{
   font-size: 14px;
   color: var(--text);
   opacity: 0.6;
+}
+
+.mission-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.6;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--border);
+}
+
+.mission-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.mission-card-stack {
+  position: relative;
+  cursor: pointer;
+  /* mission cards are landscape: wider than tall */
+  width: calc(120px * 7 / 5);
+  height: 120px;
+  aspect-ratio: 7 / 5;
+}
+
+.mission-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  transition: box-shadow 0.2s;
+}
+
+.mission-card-image:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.mission-card-count {
+  bottom: 4px;
+  right: 4px;
 }
 
 @media (max-width: 1365px) {

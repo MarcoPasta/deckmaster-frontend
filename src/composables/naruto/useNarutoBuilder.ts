@@ -88,10 +88,12 @@ export function useNarutoBuilder() {
     userId: string,
     name: string,
     cards: NarutoCard[],
+    cover?: string,
   ): Promise<void> {
     await post("/auth/naruto/decks/create", {
       UserId: userId,
       Name: name,
+      CoverCard: cover,
       Entries: cards.map((card) => ({ cardId: card.ID })),
     });
   }
@@ -100,11 +102,12 @@ export function useNarutoBuilder() {
     deckId: number,
     name: string,
     cards: NarutoCard[],
+    cover?: string,
   ): Promise<void> {
-    console.log(cards.map((card) => ({ cardId: card.ID })));
     await put(`/auth/naruto/decks/${deckId}/update`, {
       DeckId: deckId,
       Name: name,
+      CoverCard: cover,
       Entries: cards.map((card) => ({ cardId: card.ID })),
     });
   }

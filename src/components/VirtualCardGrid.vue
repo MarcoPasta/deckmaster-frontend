@@ -9,12 +9,14 @@ const props = withDefaults(
     targetCardWidth?: number;
     colGap?: number;
     rowGap?: number;
+    paddingStart?: number;
   }>(),
   {
     estimateSize: 200,
     targetCardWidth: 0,
     colGap: 8,
     rowGap: 10,
+    paddingStart: 0,
   },
 );
 
@@ -24,6 +26,7 @@ const emit = defineEmits<{
 
 defineSlots<{
   card(props: { card: unknown; index: number }): unknown;
+  header?(): unknown;
 }>();
 
 const cardGridEl = ref<HTMLElement | null>(null);
@@ -73,6 +76,7 @@ const rowVirtualizer = useVirtualizer(
     getScrollElement: () => cardGridEl.value,
     estimateSize: () => itemSize.value,
     overscan: 3,
+    paddingStart: props.paddingStart,
   })),
 );
 
@@ -102,6 +106,7 @@ defineExpose({ scrollToTop, columnCount });
 
 <template>
   <div ref="cardGridEl" class="card-grid">
+    <slot name="header" />
     <div
       :style="{
         height: rowVirtualizer.getTotalSize() + 'px',

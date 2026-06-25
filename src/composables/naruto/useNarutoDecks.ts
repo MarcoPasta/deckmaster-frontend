@@ -3,7 +3,7 @@ import type { NarutoCard, NarutoDecks } from "../../interfaces/interfaces";
 import { useApi } from "../useApi";
 
 export function useNarutoDecks(userId: () => string | undefined) {
-  const { get, del } = useApi();
+  const { get, del, patch } = useApi();
   const decks = ref<NarutoDecks[]>([]);
   const imageUrls = ref<Record<string, string>>({});
 
@@ -39,7 +39,10 @@ export function useNarutoDecks(userId: () => string | undefined) {
   );
 
   function getPreviewImage(deck: NarutoDecks): string {
-    const entry = deck.entries?.[0];
+    const coverEntry = deck.cover
+      ? deck.entries?.find((e) => String(e.card.ID) === deck.cover)
+      : undefined;
+    const entry = coverEntry ?? deck.entries?.[0];
     if (!entry?.card?.card_number || !entry?.card?.rarity) return "";
     const key = `cards/naruto/${entry.card.set}_${entry.card.card_number}_${entry.card.rarity}.webp`;
     return imageUrls.value[key] || "";
@@ -80,6 +83,14 @@ export function useNarutoDecks(userId: () => string | undefined) {
     return list;
   }
 
+  async function updateCoverCard(deckId: number, cardId: number) {
+    try {
+      await patch<void>(`/auth/naruto/decks/${deckId}/image/update/${cardId}`);
+    } catch (e) {
+      console.error("Failed to update naruto deck cover:", e);
+    }
+  }
+
   async function deleteDeck(deckId: number) {
     decks.value = decks.value.filter((d) => d.ID !== deckId);
     try {
@@ -96,5 +107,6 @@ export function useNarutoDecks(userId: () => string | undefined) {
     getCardImage,
     buildDeckText,
     deleteDeck,
+    updateCoverCard,
   };
 }

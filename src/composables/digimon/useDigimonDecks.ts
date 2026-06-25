@@ -3,7 +3,7 @@ import type { DigimonCard, DigimonDecks } from "../../interfaces/interfaces";
 import { useApi } from "../useApi";
 
 export function useDigimonDecks(userId: () => string | undefined) {
-  const { get, del, put } = useApi();
+  const { get, del, put, patch } = useApi();
   const decks = ref<DigimonDecks[]>([]);
   const imageUrls = ref<Record<string, string>>({});
 
@@ -39,7 +39,10 @@ export function useDigimonDecks(userId: () => string | undefined) {
   );
 
   function getPreviewImage(deck: DigimonDecks): string {
-    const entry = deck.entries?.[0];
+    const coverEntry = deck.cover
+      ? deck.entries?.find((e) => String(e.card.ID) === deck.cover)
+      : undefined;
+    const entry = coverEntry ?? deck.entries?.[0];
     if (!entry?.card?.CardNumber) return "";
     const key = `cards/digimon/${entry.card.CardNumber}.png`;
     return imageUrls.value[key] || "";
@@ -72,6 +75,14 @@ export function useDigimonDecks(userId: () => string | undefined) {
     }
 
     return lines.join("\n").trim();
+  }
+
+  async function updateCoverCard(deckId: number, cardId: number) {
+    try {
+      await patch<void>(`/auth/digimon/decks/${deckId}/image/update/${cardId}`);
+    } catch (e) {
+      console.error("Failed to update digimon deck cover:", e);
+    }
   }
 
   async function deleteDeck(deckId: number) {
@@ -109,5 +120,6 @@ export function useDigimonDecks(userId: () => string | undefined) {
     buildDeckText,
     deleteDeck,
     updateDeck,
+    updateCoverCard,
   };
 }

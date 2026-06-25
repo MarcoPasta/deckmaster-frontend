@@ -85,10 +85,12 @@ export function usePokemonBuilder() {
     userId: string,
     name: string,
     cards: PokemonCard[],
+    cover?: string,
   ): Promise<void> {
     await post("/auth/pokemon/decks/create", {
       UserId: userId,
       Name: name,
+      CoverCard: cover,
       Entries: cards.map((card) => ({ cardId: card.ID })),
     });
   }
@@ -97,12 +99,13 @@ export function usePokemonBuilder() {
     deckId: number,
     name: string,
     cards: PokemonCard[],
+    cover?: string,
   ): Promise<void> {
-    console.log(cards.map((card) => ({ cardId: card.ID })));
     await put(`/auth/pokemon/decks/${deckId}/update`, {
       DeckId: deckId,
       Name: name,
       Entries: cards.map((card) => ({ cardId: card.ID })),
+      CoverCard: cover,
     });
   }
 

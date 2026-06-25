@@ -10,12 +10,12 @@ const isAdmin = computed(
 );
 
 const navItems = [
+  { label: "Home", path: "/" },
   { label: "Builder", path: "/builder" },
   { label: "Decks", path: "/decks", ShowWhen: "signed-in" as const },
   { label: "Upload", path: "/upload", adminOnly: true },
   { label: "Cardeditor", path: "/cardeditor", adminOnly: true },
-  { label: "Profile", path: "/profile" },
-  { label: "", path: "/" },
+  // { label: "Profile", path: "/profile" },
 ];
 
 const tcgOptions: { label: string; value: TcgType }[] = [
@@ -31,6 +31,14 @@ const tcgLabel = () =>
 
 <template>
   <nav class="navbar">
+    <div class="nav-item nav-user">
+      <Show when="signed-in">
+        <UserButton />
+      </Show>
+      <Show when="signed-out">
+        <SignInButton />
+      </Show>
+    </div>
     <div class="tcg-dropdown">
       <button class="nav-item tcg-trigger" @click="tcgMenuOpen = !tcgMenuOpen">
         {{ tcgLabel() }}
@@ -84,14 +92,6 @@ const tcgLabel = () =>
           {{ item.label }}
         </router-link>
       </template>
-    </div>
-    <div class="nav-item nav-user">
-      <Show when="signed-in">
-        <UserButton />
-      </Show>
-      <Show when="signed-out">
-        <SignInButton />
-      </Show>
     </div>
   </nav>
   <Teleport to="body">

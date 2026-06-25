@@ -34,6 +34,7 @@ export interface DigimonDecks {
   DeletedAt: Date | null;
   userId: string;
   name: string;
+  cover?: string | null;
   entries: DigimonDeckEntry[];
 }
 
@@ -83,6 +84,7 @@ export interface PokemonDecks {
   DeletedAt: Date | null;
   userId: string;
   name: string;
+  cover?: string | null;
   entries: PokemonDeckEntry[];
 }
 
@@ -122,5 +124,6 @@ export interface NarutoDecks {
   DeletedAt: Date | null;
   userId: string;
   name: string;
+  cover?: string | null;
   entries: NarutoDeckEntry[];
 }

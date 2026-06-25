@@ -3,7 +3,7 @@ import type { PokemonCard, PokemonDecks } from "../../interfaces/interfaces";
 import { useApi } from "../useApi";
 
 export function usePokemonDecks(userId: () => string | undefined) {
-  const { get, del } = useApi();
+  const { get, del, patch } = useApi();
   const decks = ref<PokemonDecks[]>([]);
   const imageUrls = ref<Record<string, string>>({});
 
@@ -39,7 +39,10 @@ export function usePokemonDecks(userId: () => string | undefined) {
   );
 
   function getPreviewImage(deck: PokemonDecks): string {
-    const entry = deck.entries?.[0];
+    const coverEntry = deck.cover
+      ? deck.entries?.find((e) => String(e.card.ID) === deck.cover)
+      : undefined;
+    const entry = coverEntry ?? deck.entries?.[0];
     if (!entry?.card?.CardNumber || !entry?.card?.Code) return "";
     const number = entry.card.CardNumber.split("/")[0];
     const key = `cards/pokemon/${entry.card.Code}_${number}.png`;
@@ -73,11 +76,17 @@ export function usePokemonDecks(userId: () => string | undefined) {
 
     for (const { card, count } of cardCounts.values()) {
       const type = card.CardType?.toLowerCase();
+      const name = card.Name ?? "";
+      const isEnergy =
+        !type ||
+        type === "energy" ||
+        type === "energie" ||
+        card.Phase?.toLowerCase() === "special" ||
+        name.includes("-Energie") ||
+        name.toLowerCase().includes("energy");
       if (type === "pokemon" || type === "pokémon") {
         groups["Pokémon"].push({ card, count });
-      } else if (type === "trainer") {
-        groups["Trainer"].push({ card, count });
-      } else if (type === "energy" || type === "energie") {
+      } else if (isEnergy) {
         groups["Energy"].push({ card, count });
       } else {
         groups["Trainer"].push({ card, count });
@@ -87,22 +96,24 @@ export function usePokemonDecks(userId: () => string | undefined) {
     const lines: string[] = [];
     for (const [label, cards] of Object.entries(groups)) {
       if (cards.length === 0) continue;
-      const total = cards.reduce((sum, c) => sum + c.count, 0);
-      lines.push(`${label}: ${total}`);
+      lines.push(`${label}: ${cards.length}`);
       for (const { card, count } of cards) {
         const number = card.CardNumber?.split("/")[0] ?? "";
         const code = (card.Code ?? "").toUpperCase();
-        const cardType = (card.CardType ?? "").toLowerCase();
-        const displayName =
-          cardType === "energie" || cardType === "energy"
-            ? `${card.EnergyType}-Energie`
-            : card.Name;
-        lines.push(`${count} ${displayName} ${code} ${number}`);
+        lines.push(`${count} ${card.Name} ${code} ${number}`);
       }
       lines.push("");
     }
 
     return lines.join("\n").trim();
+  }
+
+  async function updateCoverCard(deckId: number, cardId: number) {
+    try {
+      await patch<void>(`/auth/pokemon/decks/${deckId}/image/update/${cardId}`);
+    } catch (e) {
+      console.error("Failed to update pokemon deck cover:", e);
+    }
   }
 
   async function deleteDeck(deckId: number) {
@@ -121,5 +132,6 @@ export function usePokemonDecks(userId: () => string | undefined) {
     getCardImage,
     buildDeckText,
     deleteDeck,
+    updateCoverCard,
   };
 }
