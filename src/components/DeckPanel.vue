@@ -18,6 +18,7 @@ defineProps<{
   isMobile: boolean;
   isNarrow: boolean;
   drawerOffset: number;
+  hideDrawerHandle?: boolean;
   getCardImage: (card: AnyCard) => string;
   cardName: (card: AnyCard) => string;
 }>();
@@ -48,7 +49,7 @@ const emit = defineEmits<{
     "
   >
     <div
-      v-if="isMobile"
+      v-if="isMobile && !hideDrawerHandle"
       class="drawer-handle"
       @touchstart="emit('drawer-touch-start', $event)"
       @touchmove="emit('drawer-touch-move', $event)"
@@ -60,6 +61,7 @@ const emit = defineEmits<{
 
     <div class="panel-header" @click="isMobile && emit('drawer-toggle')">
       <span class="panel-title">Deck ({{ groupedChosenCards.reduce((s, g) => s + g.count, 0) }})</span>
+      <v-icon v-if="isMobile" icon="mdi-chevron-down" class="panel-close-icon" />
     </div>
 
     <div class="deck-actions">
@@ -198,6 +200,17 @@ const emit = defineEmits<{
   font-size: 16px;
   font-weight: 600;
   color: var(--text-h);
+}
+
+.panel-close-icon {
+  margin-left: auto;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.panel-close-icon:hover {
+  opacity: 1;
 }
 
 .deck-actions {
@@ -349,7 +362,7 @@ const emit = defineEmits<{
   .deck-panel {
     height: 100%;
     border-radius: 16px 16px 0 0;
-    padding: 10px 8px;
+    padding: 10px 8px 0;
     transition: transform 0.2s ease;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
   }
@@ -358,6 +371,7 @@ const emit = defineEmits<{
     grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
     gap: 6px 6px;
     padding-right: 4px;
+    padding-bottom: 0;
   }
 
   .deck-actions {

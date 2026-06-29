@@ -222,9 +222,13 @@ const { mobileThumbnail, onTouchStart, onTouchMove, onMobileTap, onMobileOverlay
 // Mobile drawer
 const DRAWER_HANDLE_HEIGHT = 44;
 const drawerOffset = ref(DRAWER_HANDLE_HEIGHT);
+const isDrawerOpen = computed(() => drawerOffset.value > DRAWER_HANDLE_HEIGHT + 20);
 let drawerTouchStartY = 0;
 let drawerStartOffset = 0;
-function getMaxDrawerOffset() { return window.innerHeight * 0.5; }
+function getMaxDrawerOffset() {
+  if (!builderEl.value) return DRAWER_HANDLE_HEIGHT;
+  return builderEl.value.clientHeight * 0.7;
+}
 function toggleDrawer() {
   drawerOffset.value = drawerOffset.value > DRAWER_HANDLE_HEIGHT + 20 ? DRAWER_HANDLE_HEIGHT : getMaxDrawerOffset();
 }
@@ -244,7 +248,7 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
 
 <template>
   <div ref="builderEl" class="builder" :class="{ dragging }" :style="{ '--split': splitPercent + '%' }">
-    <div class="deck-wrapper">
+    <div v-if="!isMobile || isDrawerOpen" class="deck-wrapper">
     <DeckPanel
       :chosen-cards="chosenCards"
       :grouped-chosen-cards="groupedChosenCards"
@@ -254,6 +258,7 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
       :is-mobile="isMobile"
       :is-narrow="isNarrow"
       :drawer-offset="drawerOffset"
+      :hide-drawer-handle="isMobile && isDrawerOpen"
       :get-card-image="getCardImage"
       :card-name="cardName"
       @update:deck-name="deckName = $event"
@@ -269,6 +274,14 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
       @drawer-touch-move="onDrawerTouchMove"
       @drawer-touch-end="onDrawerTouchEnd"
     />
+    </div>
+
+    <div v-if="isMobile" class="mobile-drawer-trigger" :class="{ 'is-open': isDrawerOpen }" @click="toggleDrawer">
+      <v-icon v-if="isDrawerOpen" icon="mdi-chevron-down" />
+      <template v-else>
+        <v-icon icon="mdi-cards" />
+        <span class="mobile-drawer-count">{{ chosenCards.length }} cards</span>
+      </template>
     </div>
 
     <div v-if="!isMobile" class="divider" @mousedown="startDrag">
@@ -431,10 +444,35 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
 @media (max-width: 480px) {
   .builder { flex-direction: column; padding: 8px; padding-bottom: 0; height: calc(100vh - 76px); position: relative; overflow: hidden; }
   .divider { display: none; }
-  .deck-wrapper { position: absolute; bottom: env(safe-area-inset-bottom, 20px); left: 0; right: 0; height: 50%; max-height: 50%; z-index: 100; order: unset; flex: unset; }
+  .deck-wrapper { position: absolute; bottom: 0; left: 0; right: 0; height: 70%; max-height: 70%; z-index: 100; order: unset; flex: unset; }
   .pool-panel { order: 1; flex: 1; min-height: 0; border-radius: 12px; padding: 8px 4px; margin-bottom: 48px; overflow: hidden; }
   .search-wrapper { max-width: 100%; }
   .mobile-thumbnail-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); }
   .mobile-thumbnail-img { width: 70%; max-width: 280px; border-radius: 10px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
+
+  .mobile-drawer-trigger {
+    position: fixed;
+    bottom: max(16px, env(safe-area-inset-bottom, 0));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    background: #7c4dff;
+    color: #fff;
+    border-radius: 24px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: opacity 0.2s;
+  }
+
+  .mobile-drawer-trigger.is-open {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 </style>

@@ -182,7 +182,10 @@ async function copyForCardmarket() {
     const c = e.card as PokemonCard;
     return { id: c.ID, code: c.Code, card_number: c.CardNumber };
   });
-  const response = await post<{ cards: string }>("/auth/pokemon/decks/cardmarket", { cards });
+  const response = await post<{ cards: string }>(
+    "/auth/pokemon/decks/cardmarket",
+    { cards },
+  );
   cardmarketText.value = response?.cards ?? "";
   shareMenuOpen.value = false;
   cardmarketOpen.value = true;
@@ -225,8 +228,11 @@ function drawTesthand() {
     testhandCards.value = arr.slice(-7);
     testhandKeepingCards.value = [];
   } else if (selectedTcg.value === "naruto") {
-    testhandCards.value = arr.slice(-7, -2);
-    testhandKeepingCards.value = arr.slice(-2);
+    const nonMission = arr.filter(
+      (card) => (card as NarutoCard).group?.toLowerCase() !== "mission",
+    );
+    testhandCards.value = nonMission.slice(-7, -2);
+    testhandKeepingCards.value = nonMission.slice(-2);
   } else {
     testhandCards.value = arr.slice(-5);
     testhandKeepingCards.value = [];
@@ -484,7 +490,11 @@ function deleteDeck() {
           />
         </v-card-text>
         <v-card-actions>
-          <v-btn variant="tonal" prepend-icon="mdi-clipboard" @click="copyCardmarketToClipboard">
+          <v-btn
+            variant="tonal"
+            prepend-icon="mdi-clipboard"
+            @click="copyCardmarketToClipboard"
+          >
             Copy to Clipboard
           </v-btn>
           <v-spacer />
@@ -691,7 +701,7 @@ function deleteDeck() {
   }
 
   .dialog-card-grid .dialog-card-slot {
-    flex: 0 0 calc((100% - 8px) / 2);
+    flex: 0 0 calc((100% - 18px) / 3);
   }
 
   .dialog-mission-grid .dialog-mission-slot {
