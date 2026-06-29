@@ -422,7 +422,7 @@ function deleteDeck() {
         <div
           class="testhand-grid"
           :style="{
-            gridTemplateColumns: `repeat(${testhandCards.length}, 1fr)`,
+            gridTemplateColumns: `repeat(3, 1fr)`,
           }"
         >
           <div
@@ -590,8 +590,9 @@ function deleteDeck() {
 }
 
 .dialog-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
   padding: 12px;
   margin: 8px 16px;
@@ -602,6 +603,10 @@ function deleteDeck() {
   border-radius: 12px;
 }
 
+.dialog-card-grid .dialog-card-slot {
+  flex: 0 0 calc((100% - 16px) / 3);
+}
+
 .dialog-card-slot {
   position: relative;
   aspect-ratio: 5 / 7;
@@ -610,7 +615,7 @@ function deleteDeck() {
 .dialog-card-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 8px;
 }
 
@@ -685,20 +690,20 @@ function deleteDeck() {
     margin: 4px 8px;
   }
 
-  .testhand-keeping .dialog-card-slot {
-    flex: 0 0 calc((100% - 5px) / 2);
+  .dialog-card-grid .dialog-card-slot {
+    flex: 0 0 calc((100% - 8px) / 2);
+  }
+
+  .dialog-mission-grid .dialog-mission-slot {
+    flex: 0 0 calc((100% - 8px) / 2);
   }
 }
 
 .testhand-keeping {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   border-color: rgba(124, 77, 255, 0.5);
   background: rgba(124, 77, 255, 0.08);
-}
-
-.testhand-keeping .dialog-card-slot {
-  flex: 0 0 calc((100% - 12px * 4) / 5);
 }
 
 .testhand-section-label {
@@ -728,6 +733,7 @@ function deleteDeck() {
 .dialog-mission-grid {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
   padding: 8px 12px 12px;
   margin: 0 16px 8px;
@@ -736,20 +742,23 @@ function deleteDeck() {
   border-radius: 12px;
 }
 
+.dialog-mission-grid .dialog-mission-slot {
+  flex: 0 0 calc((100% - 16px) / 3);
+}
+
 .dialog-mission-grid.choosing-cover {
   cursor: pointer;
 }
 
 .dialog-mission-slot {
   position: relative;
-  height: 80px;
   aspect-ratio: 7 / 5;
 }
 
 .dialog-mission-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 6px;
 }
 
