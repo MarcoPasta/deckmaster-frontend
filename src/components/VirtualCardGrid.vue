@@ -153,6 +153,7 @@ defineExpose({ scrollToTop, columnCount });
         </template>
       </div>
     </div>
+    <slot name="footer" />
   </div>
 </template>
 

@@ -327,30 +327,6 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
           :row-gap="10"
           @card-click="(card) => !isMobile && addCard(card as AnyCard)"
         >
-          <template v-if="filteredMissionCards.length > 0" #header>
-            <div class="pool-mission-label">Missions</div>
-            <div class="pool-mission-row">
-              <div
-                v-for="card in filteredMissionCards"
-                :key="cardKey(card as AnyCard)"
-                :class="['pool-mission-slot', bouncingCard === cardKey(card as AnyCard) && 'card-bounce-active']"
-                @click="!isMobile && addCard(card as AnyCard)"
-                @mouseenter="showTooltip(card as AnyCard, $event)"
-                @mousemove="moveTooltip($event)"
-                @mouseleave="hideTooltip"
-                @touchstart="onTouchStart"
-                @touchmove.passive="onTouchMove"
-                @touchend.prevent="onMobileTap(card as AnyCard)"
-              >
-                <img
-                  :src="getCardImage(card as AnyCard)"
-                  :alt="cardName(card as AnyCard)"
-                  loading="lazy"
-                  class="card-image"
-                />
-              </div>
-            </div>
-          </template>
           <template #card="{ card }">
             <div
               :class="['pool-card-slot', bouncingCard === cardKey(card as AnyCard) && 'card-bounce-active']"
@@ -368,6 +344,33 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
                 class="card-image"
               />
             </div>
+          </template>
+          <template #footer>
+            <template v-if="filteredMissionCards.length > 0">
+              <div class="pool-mission-divider" />
+              <div class="pool-mission-label">Missions</div>
+              <div class="pool-mission-row">
+                <div
+                  v-for="card in filteredMissionCards"
+                  :key="cardKey(card as AnyCard)"
+                  :class="['pool-mission-slot', bouncingCard === cardKey(card as AnyCard) && 'card-bounce-active']"
+                  @click="!isMobile && addCard(card as AnyCard)"
+                  @mouseenter="showTooltip(card as AnyCard, $event)"
+                  @mousemove="moveTooltip($event)"
+                  @mouseleave="hideTooltip"
+                  @touchstart="onTouchStart"
+                  @touchmove.passive="onTouchMove"
+                  @touchend.prevent="onMobileTap(card as AnyCard)"
+                >
+                  <img
+                    :src="getCardImage(card as AnyCard)"
+                    :alt="cardName(card as AnyCard)"
+                    loading="lazy"
+                    class="card-image"
+                  />
+                </div>
+              </div>
+            </template>
           </template>
         </VirtualCardGrid>
     </div>
@@ -414,6 +417,11 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
   color: var(--text);
   opacity: 0.6;
   padding: 2px 0 4px;
+}
+
+.pool-mission-divider {
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
 }
 
 .pool-mission-row {
@@ -473,6 +481,15 @@ watch([searchQuery, activeFilter, selectedTcg], () => { gridRef.value?.scrollToT
   .mobile-drawer-trigger.is-open {
     opacity: 0;
     pointer-events: none;
+  }
+
+  .pool-mission-row {
+    gap: 8px;
+  }
+
+  .pool-mission-slot {
+    flex: 0 0 calc((100% - 16px) / 3);
+    height: auto;
   }
 }
 </style>
