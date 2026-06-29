@@ -422,7 +422,7 @@ function deleteDeck() {
         <div
           class="testhand-grid"
           :style="{
-            gridTemplateColumns: `repeat(${testhandCards.length}, 1fr)`,
+            gridTemplateColumns: `repeat(3, 1fr)`,
           }"
         >
           <div
@@ -610,7 +610,7 @@ function deleteDeck() {
 .dialog-card-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 8px;
 }
 
@@ -684,21 +684,13 @@ function deleteDeck() {
     padding: 8px;
     margin: 4px 8px;
   }
-
-  .testhand-keeping .dialog-card-slot {
-    flex: 0 0 calc((100% - 5px) / 2);
-  }
 }
 
 .testhand-keeping {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   border-color: rgba(124, 77, 255, 0.5);
   background: rgba(124, 77, 255, 0.08);
-}
-
-.testhand-keeping .dialog-card-slot {
-  flex: 0 0 calc((100% - 12px * 4) / 5);
 }
 
 .testhand-section-label {
@@ -726,8 +718,8 @@ function deleteDeck() {
 }
 
 .dialog-mission-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 8px 12px 12px;
   margin: 0 16px 8px;
@@ -742,14 +734,13 @@ function deleteDeck() {
 
 .dialog-mission-slot {
   position: relative;
-  height: 80px;
   aspect-ratio: 7 / 5;
 }
 
 .dialog-mission-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 6px;
 }
 
