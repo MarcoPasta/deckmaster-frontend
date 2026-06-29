@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDigimonDecks } from "../composables/digimon/useDigimonDecks";
 import { useNarutoDecks } from "../composables/naruto/useNarutoDecks";
@@ -90,6 +90,11 @@ function formatDate(date: Date | string): string {
 const dialogOpen = ref(false);
 const selectedDeck = ref<AnyDeck | null>(null);
 const choosingCover = ref(false);
+
+const isMobile = ref(window.innerWidth <= 480);
+function onResize() { isMobile.value = window.innerWidth <= 480; }
+onMounted(() => window.addEventListener("resize", onResize));
+onUnmounted(() => window.removeEventListener("resize", onResize));
 
 function isNarutoMission(card: AnyCard): boolean {
   return (
@@ -428,7 +433,9 @@ function deleteDeck() {
         <div
           class="testhand-grid"
           :style="{
-            gridTemplateColumns: `repeat(3, 1fr)`,
+            ...(!isMobile
+              ? { gridTemplateColumns: `repeat(${testhandCards.length}, 1fr)` }
+              : { display: 'flex', justifyContent: 'center', flexWrap: 'wrap' }),
           }"
         >
           <div
@@ -446,11 +453,15 @@ function deleteDeck() {
         </div>
         <template v-if="testhandKeepingCards.length">
           <div class="testhand-section-label">When keeping</div>
-          <div class="testhand-grid testhand-keeping">
+          <div
+            class="testhand-grid testhand-keeping"
+            :style="{ display: 'flex', justifyContent: 'center' }"
+          >
             <div
               v-for="(card, i) in testhandKeepingCards"
               :key="i"
               class="dialog-card-slot"
+              :style="!isMobile ? { flex: `0 0 calc((100% - ${(testhandCards.length - 1) * 12}px) / ${testhandCards.length})` } : undefined"
             >
               <img
                 v-if="getCardImage(card)"
@@ -693,25 +704,30 @@ function deleteDeck() {
   border-radius: 12px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 480px) {
   .testhand-grid {
     gap: 5px;
     padding: 8px;
     margin: 4px 8px;
   }
 
+  .testhand-grid .dialog-card-slot {
+    flex: 0 0 calc((100% - 10px) / 3);
+  }
+
   .dialog-card-grid .dialog-card-slot {
-    flex: 0 0 calc((100% - 18px) / 3);
+    flex: 0 0 calc((100% - 16px) / 3);
   }
 
   .dialog-mission-grid .dialog-mission-slot {
     flex: 0 0 calc((100% - 8px) / 2);
   }
+
 }
 
 .testhand-keeping {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  justify-content: center;
   border-color: rgba(124, 77, 255, 0.5);
   background: rgba(124, 77, 255, 0.08);
 }
