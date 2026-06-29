@@ -27,6 +27,7 @@ const emit = defineEmits<{
 defineSlots<{
   card(props: { card: unknown; index: number }): unknown;
   header?(): unknown;
+  footer?(): unknown;
 }>();
 
 const cardGridEl = ref<HTMLElement | null>(null);
