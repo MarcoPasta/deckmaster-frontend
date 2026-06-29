@@ -614,7 +614,7 @@ function deleteDeck() {
 }
 
 .dialog-card-grid .dialog-card-slot {
-  flex: 0 0 calc((100% - 16px) / 3);
+  flex: 0 0 calc((100% - 40px) / 6);
 }
 
 .dialog-card-slot {
