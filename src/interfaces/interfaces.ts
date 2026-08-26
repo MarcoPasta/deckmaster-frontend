@@ -127,3 +127,16 @@ export interface NarutoDecks {
   cover?: string | null;
   entries: NarutoDeckEntry[];
 }
+
+export interface SocialLink {
+  platform: "twitter" | "discord" | "youtube" | "custom";
+  url: string;
+  label?: string; // only for "custom"
+}
+
+export interface UserProfile {
+  clerk_id: string;
+  social_links: SocialLink[];
+  created_at: string;
+  updated_at: string;
+}
