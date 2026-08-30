@@ -53,9 +53,6 @@ export function usePokemonBuilder() {
         if (activeFilter === "energy") {
           matchesFilter = type === "energie" || type === "energy";
         } else {
-          console.log("activeFilter: ", activeFilter.toLowerCase());
-          console.log("selected type: ", type);
-          console.log("does it match: ", type === activeFilter.toLowerCase());
           matchesFilter = type === activeFilter.toLowerCase();
         }
       }

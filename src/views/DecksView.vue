@@ -245,12 +245,6 @@ function drawTesthand() {
   testhandOpen.value = true;
 }
 
-function duplicateDeck() {
-  if (!selectedDeck.value) return;
-  // TODO: call API to duplicate
-  dialogOpen.value = false;
-}
-
 function deleteDeck() {
   if (!selectedDeck.value) return;
   deleteDeckLocal(selectedDeck.value.ID);
@@ -399,12 +393,6 @@ function deleteDeck() {
           <v-btn icon variant="tonal" @click="drawTesthand">
             <v-icon>mdi-cards-playing</v-icon>
             <v-tooltip activator="parent" location="bottom">Testhand</v-tooltip>
-          </v-btn>
-          <v-btn icon variant="tonal" @click="duplicateDeck">
-            <v-icon>mdi-content-copy</v-icon>
-            <v-tooltip activator="parent" location="bottom"
-              >Duplicate</v-tooltip
-            >
           </v-btn>
           <v-btn icon variant="tonal" color="error" @click="deleteDeck">
             <v-icon>mdi-delete</v-icon>

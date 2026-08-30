@@ -78,8 +78,6 @@ export function useNarutoDecks(userId: () => string | undefined) {
     }
     list += deck.name;
 
-    console.log(list);
-
     return list;
   }
 

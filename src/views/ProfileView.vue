@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { UserProfile, useUser } from "@clerk/vue";
+import { useUser } from "@clerk/vue";
 import { computed, onMounted, ref } from "vue";
 import { useProfile } from "../composables/useProfile";
 import { useSnackbar } from "../composables/useSnackbar";
@@ -14,13 +14,11 @@ const email = ref("");
 const username = ref("");
 const profileImage = ref<string | null>(null);
 
-function optimizedImageUrl(rawUrl: string | null): string | undefined {
+function optimizedImageUrl(rawUrl: string | null | undefined): string | undefined {
   if (!rawUrl) return undefined;
   const separator = rawUrl.includes("?") ? "&" : "?";
   return `${rawUrl}${separator}width=160&height=160&fit=cover`;
 }
-
-const avatarImage = computed(() => profileImage.value || user.value?.imageUrl);
 
 // Social links
 const socialLinks = ref<SocialLink[]>([]);
@@ -132,7 +130,7 @@ async function saveProfile() {
     }
 
     // Call backend to save profile updates
-    const updatedProfile = await updateProfile(updates);
+    await updateProfile(updates);
 
     // Refresh profile from backend to ensure sync
     const freshProfile = await fetchProfile();
