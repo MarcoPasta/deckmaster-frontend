@@ -22,8 +22,18 @@ const routes = [
     component: ProfileView,
     meta: { requiresAuth: true },
   },
-  { path: "/upload", name: "Upload", component: UploadView },
-  { path: "/cardeditor", name: "Cardeditor", component: CardEditorView },
+  {
+    path: "/upload",
+    name: "Upload",
+    component: UploadView,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: "/cardeditor",
+    name: "Cardeditor",
+    component: CardEditorView,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
 ];
 
 const router = createRouter({
@@ -32,11 +42,18 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-  if (to.meta.requiresAuth) {
+  if (to.meta.requiresAuth || to.meta.requiresAdmin) {
     const clerk = useClerk();
-    if (!clerk.value?.user) {
+    const user = clerk.value?.user;
+    if (!user) {
       clerk.value?.openSignIn();
       return false;
+    }
+    if (to.meta.requiresAdmin) {
+      const role = (user.publicMetadata as { role?: string })?.role;
+      if (role !== "admin") {
+        return { name: "Home" };
+      }
     }
   }
 });
