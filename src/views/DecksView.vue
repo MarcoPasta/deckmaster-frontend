@@ -6,6 +6,7 @@ import { useDigimonDecks } from "../composables/digimon/useDigimonDecks";
 import { useNarutoDecks } from "../composables/naruto/useNarutoDecks";
 import { usePokemonDecks } from "../composables/pokemon/usePokemonDecks";
 import { useApi } from "../composables/useApi";
+import { useSnackbar } from "../composables/useSnackbar";
 import { useTcgState } from "../composables/useTcgState";
 import type {
   DigimonCard,
@@ -23,6 +24,7 @@ const router = useRouter();
 const { user } = useUser();
 const { selectedTcg } = useTcgState();
 const { getBlob, post } = useApi();
+const { show: showSnackbar } = useSnackbar();
 
 const pokemonDecks = usePokemonDecks(() => user.value?.id);
 const narutoDecks = useNarutoDecks(() => user.value?.id);
@@ -173,8 +175,14 @@ const shareMenuOpen = ref(false);
 
 async function copyAsText() {
   if (!selectedDeck.value) return;
-  const text = buildDeckText(selectedDeck.value);
-  await navigator.clipboard.writeText(text);
+  try {
+    const text = buildDeckText(selectedDeck.value);
+    await navigator.clipboard.writeText(text);
+    showSnackbar("Decklist copied to clipboard", "success");
+  } catch (e) {
+    console.error("Failed to copy decklist:", e);
+    showSnackbar("Failed to copy decklist", "error");
+  }
   shareMenuOpen.value = false;
 }
 
@@ -183,21 +191,32 @@ const cardmarketText = ref("");
 
 async function copyForCardmarket() {
   if (!selectedDeck.value) return;
-  const cards = selectedDeck.value.entries.map((e) => {
-    const c = e.card as PokemonCard;
-    return { id: c.ID, code: c.Code, card_number: c.CardNumber };
-  });
-  const response = await post<{ cards: string }>(
-    "/auth/pokemon/decks/cardmarket",
-    { cards },
-  );
-  cardmarketText.value = response?.cards ?? "";
-  shareMenuOpen.value = false;
-  cardmarketOpen.value = true;
+  try {
+    const cards = selectedDeck.value.entries.map((e) => {
+      const c = e.card as PokemonCard;
+      return { id: c.ID, code: c.Code, card_number: c.CardNumber };
+    });
+    const response = await post<{ cards: string }>(
+      "/auth/pokemon/decks/cardmarket",
+      { cards },
+    );
+    cardmarketText.value = response?.cards ?? "";
+    shareMenuOpen.value = false;
+    cardmarketOpen.value = true;
+  } catch (e) {
+    console.error("Failed to build Cardmarket list:", e);
+    showSnackbar("Failed to build Cardmarket list", "error");
+  }
 }
 
 async function copyCardmarketToClipboard() {
-  await navigator.clipboard.writeText(cardmarketText.value);
+  try {
+    await navigator.clipboard.writeText(cardmarketText.value);
+    showSnackbar("Copied to clipboard", "success");
+  } catch (e) {
+    console.error("Failed to copy to clipboard:", e);
+    showSnackbar("Failed to copy to clipboard", "error");
+  }
 }
 
 async function copyAsImage() {
@@ -206,13 +225,19 @@ async function copyAsImage() {
   const tcg = selectedTcg.value;
   const newTab = window.open("", "_blank");
 
-  const blob = await getBlob(
-    `/auth/${tcg}/decks/${selectedDeck.value.ID}/image`,
-  );
+  try {
+    const blob = await getBlob(
+      `/auth/${tcg}/decks/${selectedDeck.value.ID}/image`,
+    );
 
-  if (newTab) {
-    const url = URL.createObjectURL(blob);
-    newTab.location.href = url;
+    if (newTab) {
+      const url = URL.createObjectURL(blob);
+      newTab.location.href = url;
+    }
+  } catch (e) {
+    console.error("Failed to generate deck image:", e);
+    newTab?.close();
+    showSnackbar("Failed to generate deck image", "error");
   }
   shareMenuOpen.value = false;
 }
@@ -249,6 +274,7 @@ function deleteDeck() {
   if (!selectedDeck.value) return;
   deleteDeckLocal(selectedDeck.value.ID);
   dialogOpen.value = false;
+  showSnackbar("Deck deleted", "success");
 }
 </script>
 

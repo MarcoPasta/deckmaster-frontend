@@ -9,6 +9,7 @@ import { useDragDivider } from "../composables/useDragDivider";
 import { useMobileInteractions } from "../composables/useMobileInteractions";
 import { useNarutoBuilder } from "../composables/naruto/useNarutoBuilder";
 import { usePokemonBuilder } from "../composables/pokemon/usePokemonBuilder";
+import { useSnackbar } from "../composables/useSnackbar";
 import { useTcgState } from "../composables/useTcgState";
 import type {
   DigimonCard,
@@ -24,6 +25,7 @@ const STORAGE_ID_KEY = "builder-deck-id";
 const STORAGE_COVER_KEY = "builder-deck-cover";
 
 const { user } = useUser();
+const { show: showSnackbar } = useSnackbar();
 const { selectedTcg } = useTcgState();
 const pokemon = usePokemonBuilder();
 const naruto = useNarutoBuilder();
@@ -174,8 +176,10 @@ async function saveDeck() {
     sessionStorage.removeItem(STORAGE_NAME_KEY);
     sessionStorage.removeItem(STORAGE_ID_KEY);
     sessionStorage.removeItem(STORAGE_COVER_KEY);
+    showSnackbar("Deck saved", "success");
   } catch (e) {
     console.error("Failed to save deck:", e);
+    showSnackbar("Failed to save deck", "error");
   } finally {
     saving.value = false;
   }
@@ -188,9 +192,15 @@ async function importDeck() {
     if (selectedTcg.value === "naruto") imported = await naruto.parseDeckList(text);
     else if (selectedTcg.value === "digimon") imported = digimon.parseDeckList(text, digimon.allCards.value);
     else imported = await pokemon.parseDeckList(text);
-    if (imported.length > 0) chosenCards.value = imported;
+    if (imported.length > 0) {
+      chosenCards.value = imported;
+      showSnackbar(`Imported ${imported.length} cards`, "success");
+    } else {
+      showSnackbar("No cards found in clipboard", "warning");
+    }
   } catch (e) {
     console.error("Failed to import deck:", e);
+    showSnackbar("Failed to import deck", "error");
   }
 }
 
