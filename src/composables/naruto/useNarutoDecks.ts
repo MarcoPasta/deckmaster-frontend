@@ -69,12 +69,14 @@ export function useNarutoDecks(userId: () => string | undefined) {
 
     let list: string = "";
     for (const { card, count } of cardCounts.values()) {
-      card.rarity = card.rarity.replace("MSS", "MMS");
-      card.card_number =
-        card.rarity === "MMS"
+      // Derive export values locally; never mutate the reactive card entry,
+      // which would corrupt the displayed data and later image lookups.
+      const rarity = card.rarity.replace("MSS", "MMS");
+      const cardNumber =
+        rarity === "MMS"
           ? card.card_number.replace("M", "").padStart(3, "0")
           : card.card_number;
-      list += `${card.set.toUpperCase()}-${card.card_number}-${card.rarity.toUpperCase()}--${count}|`;
+      list += `${card.set.toUpperCase()}-${cardNumber}-${rarity.toUpperCase()}--${count}|`;
     }
     list += deck.name;
 
