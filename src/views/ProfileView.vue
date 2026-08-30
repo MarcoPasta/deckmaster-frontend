@@ -110,51 +110,9 @@ function removeImage() {
   if (fileInput.value) fileInput.value.value = "";
 }
 
-// Profile save
-async function saveProfile() {
-  savingProfile.value = true;
-  try {
-    const updates: any = {};
-
-    // Update first name if changed
-    if (user.value?.firstName !== email.value) {
-      updates.first_name = email.value;
-    }
-
-    // Note: Email and username changes should be handled through Clerk UI
-    // since they require verification. We only update local profile fields.
-
-    if (Object.keys(updates).length === 0) {
-      showSnackbar("No changes to save", "info");
-      return;
-    }
-
-    // Call backend to save profile updates
-    await updateProfile(updates);
-
-    // Refresh profile from backend to ensure sync
-    const freshProfile = await fetchProfile();
-    if (freshProfile) {
-      if (freshProfile.social_links) {
-        socialLinks.value = freshProfile.social_links;
-      }
-    }
-
-    showSnackbar("Profile updated successfully", "success");
-  } catch (error: any) {
-    console.error("Error saving profile:", error);
-
-    // Check if error response has validation errors
-    const errorMessage =
-      error?.response?.data?.errors?.join(", ") ||
-      error?.response?.data?.error ||
-      "Failed to save profile";
-
-    showSnackbar(errorMessage, "error");
-  } finally {
-    savingProfile.value = false;
-  }
-}
+// Email and username are managed by Clerk (they require verification) and are
+// shown here read-only. Editable profile data is limited to the avatar,
+// social links and password.
 
 // Social links
 async function addSocialLink() {
@@ -340,36 +298,26 @@ function getPlatformIcon(platform: string): string {
         <p v-else class="form-text form-text--placeholder">No name set</p>
       </div>
 
-      <!-- Email & Username -->
+      <!-- Email & Username (managed by Clerk, read-only here) -->
       <div class="form-section">
         <h3 class="subsection-title">Account</h3>
         <div class="form-stack">
-          <v-text-field
-            v-model="email"
-            label="Email"
-            variant="outlined"
-            density="compact"
-            hide-details
-            type="email"
-          />
-          <v-text-field
-            v-model="username"
-            label="Username"
-            variant="outlined"
-            density="compact"
-            hide-details
-          />
+          <div class="form-field">
+            <span class="form-field-label">Email</span>
+            <p class="form-text">
+              {{ email || "—" }}
+            </p>
+          </div>
+          <div class="form-field">
+            <span class="form-field-label">Username</span>
+            <p class="form-text">
+              {{ username || "—" }}
+            </p>
+          </div>
         </div>
-        <div class="form-actions">
-          <v-btn
-            color="deep-purple-accent-2"
-            :loading="savingProfile"
-            :disabled="savingProfile"
-            @click="saveProfile"
-          >
-            Save Changes
-          </v-btn>
-        </div>
+        <p class="form-hint">
+          Email and username are managed through your account provider.
+        </p>
       </div>
 
       <v-divider class="my-6" />
@@ -585,6 +533,30 @@ function getPlatformIcon(platform: string): string {
 }
 
 .form-text--placeholder {
+  opacity: 0.6;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.form-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+.form-field .form-text {
+  padding: 2px 0;
+}
+
+.form-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text);
   opacity: 0.6;
 }
 
