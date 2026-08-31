@@ -1,4 +1,4 @@
-import { computed, type Ref } from "vue";
+import { computed, watch, type Ref } from "vue";
 import type {
   DigimonCard,
   DigimonDecks,
@@ -150,5 +150,16 @@ export function useTcgDecks(userId: () => string | undefined) {
   };
 
   const decks = computed<DecksAdapter>(() => adapters[selectedTcg.value]);
+
+  // Fetch only the active game's decks. We watch both userId and selectedTcg
+  // so switching games also triggers a fetch if decks haven't loaded yet.
+  watch(
+    [() => userId(), selectedTcg],
+    ([id]) => {
+      if (id) decks.value.fetchDecks(id);
+    },
+    { immediate: true },
+  );
+
   return { selectedTcg, decks };
 }

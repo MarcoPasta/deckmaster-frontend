@@ -1,4 +1,4 @@
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import { useApi } from "../useApi";
 
 /**
@@ -71,6 +71,10 @@ export function createDecksComposable<
       },
       { immediate: true },
     );
+
+    // Note: fetchDecks is not auto-triggered here. The caller (useTcgDecks in
+    // adapters.ts) is responsible for watching userId and selectedTcg so that
+    // only the active game's decks are fetched, not all three on mount.
 
     function getPreviewImage(deck: TDeck): string {
       const key = config.previewImageKey(deck);
