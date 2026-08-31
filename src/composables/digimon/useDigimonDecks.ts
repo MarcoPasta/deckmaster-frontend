@@ -1,6 +1,6 @@
-import type { DigimonCard, DigimonDecks } from "../../interfaces/interfaces";
-import { createDecksComposable } from "../tcg/createDecksComposable";
-import { useApi } from "../useApi";
+import type { DigimonCard, DigimonDecks } from "@/interfaces/interfaces";
+import { createDecksComposable } from "@/composables/tcg/createDecksComposable";
+import { useApi } from "@/composables/useApi";
 
 function digimonImageKey(card: DigimonCard): string {
   if (!card.CardNumber) return "";

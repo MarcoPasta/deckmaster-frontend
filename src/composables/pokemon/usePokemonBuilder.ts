@@ -1,6 +1,6 @@
-import { useApi } from "../useApi";
-import { createBuilderComposable } from "../tcg/createBuilderComposable";
-import type { PokemonCard } from "../../interfaces/interfaces";
+import { useApi } from "@/composables/useApi";
+import { createBuilderComposable } from "@/composables/tcg/createBuilderComposable";
+import type { PokemonCard } from "@/interfaces/interfaces";
 
 function pokemonImageKey(card: PokemonCard): string {
   if (!card.CardNumber || !card.Code) return "";

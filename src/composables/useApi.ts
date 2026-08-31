@@ -1,6 +1,6 @@
 import { useSession } from "@clerk/vue";
 import { ref } from "vue";
-import { api, ApiError } from "../services/api";
+import { api, ApiError } from "@/services/api";
 
 export function useApi() {
   const { session } = useSession();

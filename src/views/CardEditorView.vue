@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import CardEditDialog from "../components/CardEditDialog.vue";
-import VirtualCardGrid from "../components/VirtualCardGrid.vue";
-import { cardName, type AnyCard as AnyAdapterCard } from "../composables/tcg/adapters";
+import CardEditDialog from "@/components/CardEditDialog.vue";
+import VirtualCardGrid from "@/components/VirtualCardGrid.vue";
+import { cardName, type AnyCard as AnyAdapterCard } from "@/composables/tcg/adapters";
 import {
   narutoTagItems,
   pokemonTagItems,
   useCardEditor,
-} from "../composables/useCardEditor";
-import type { NarutoCard, PokemonCard } from "../interfaces/interfaces";
+} from "@/composables/useCardEditor";
+import type { NarutoCard, PokemonCard } from "@/interfaces/interfaces";
 
 // CardEditor only supports pokemon and naruto (admin feature).
 type AnyCard = PokemonCard | NarutoCard;

@@ -1,6 +1,6 @@
-import { useApi } from "../useApi";
-import { createBuilderComposable } from "../tcg/createBuilderComposable";
-import type { NarutoCard } from "../../interfaces/interfaces";
+import { useApi } from "@/composables/useApi";
+import { createBuilderComposable } from "@/composables/tcg/createBuilderComposable";
+import type { NarutoCard } from "@/interfaces/interfaces";
 
 function narutoImageKey(card: NarutoCard): string {
   if (!card.card_number || !card.rarity) return "";

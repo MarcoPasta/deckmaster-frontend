@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Show, SignInButton, useUser } from "@clerk/vue";
 import { computed, ref } from "vue";
-import { useTcgState, type TcgType } from "../composables/useTcgState";
+import { useTcgState, type TcgType } from "@/composables/useTcgState";
 import AppAvatar from "./AppAvatar.vue";
 
 const { selectedTcg, setTcg } = useTcgState();

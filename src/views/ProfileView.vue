@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
 import { computed, onMounted, ref } from "vue";
-import { useProfile } from "../composables/useProfile";
-import { useSnackbar } from "../composables/useSnackbar";
-import type { SocialLink } from "../interfaces/interfaces";
+import { useProfile } from "@/composables/useProfile";
+import { useSnackbar } from "@/composables/useSnackbar";
+import type { SocialLink } from "@/interfaces/interfaces";
 
 const { user } = useUser();
 const { fetchProfile, updateProfile, logPasswordChange } = useProfile();

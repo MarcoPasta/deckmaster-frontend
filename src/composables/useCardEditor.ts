@@ -1,5 +1,5 @@
 import { computed, ref } from "vue";
-import type { NarutoCard, PokemonCard } from "../interfaces/interfaces";
+import type { NarutoCard, PokemonCard } from "@/interfaces/interfaces";
 import { useNarutoBuilder } from "./naruto/useNarutoBuilder";
 import { usePokemonBuilder } from "./pokemon/usePokemonBuilder";
 import { useApi } from "./useApi";

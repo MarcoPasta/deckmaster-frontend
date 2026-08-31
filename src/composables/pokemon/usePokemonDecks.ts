@@ -1,5 +1,5 @@
-import type { PokemonCard, PokemonDecks } from "../../interfaces/interfaces";
-import { createDecksComposable } from "../tcg/createDecksComposable";
+import type { PokemonCard, PokemonDecks } from "@/interfaces/interfaces";
+import { createDecksComposable } from "@/composables/tcg/createDecksComposable";
 
 function pokemonImageKey(card: PokemonCard): string {
   if (!card.CardNumber || !card.Code) return "";

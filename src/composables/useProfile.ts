@@ -1,5 +1,5 @@
 import { useApi } from "./useApi";
-import type { UserProfile } from "../interfaces/interfaces";
+import type { UserProfile } from "@/interfaces/interfaces";
 
 export interface ProfileUpdateData {
   first_name?: string;

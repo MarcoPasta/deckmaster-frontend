@@ -1,24 +1,24 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import CardTooltip from "../components/CardTooltip.vue";
-import DeckPanel from "../components/DeckPanel.vue";
-import VirtualCardGrid from "../components/VirtualCardGrid.vue";
+import CardTooltip from "@/components/CardTooltip.vue";
+import DeckPanel from "@/components/DeckPanel.vue";
+import VirtualCardGrid from "@/components/VirtualCardGrid.vue";
 import {
   cardName,
   isMissionCard as isMissionCardFor,
   useTcgBuilder,
   type AnyCard,
-} from "../composables/tcg/adapters";
+} from "@/composables/tcg/adapters";
 import {
   BUILDER_STORAGE,
   clearBuilderHandoff,
   readBuilderHandoff,
-} from "../composables/tcg/builderHandoff";
-import { useDragDivider } from "../composables/useDragDivider";
-import { useMobileInteractions } from "../composables/useMobileInteractions";
-import { useSnackbar } from "../composables/useSnackbar";
-import type { NarutoCard } from "../interfaces/interfaces";
+} from "@/composables/tcg/builderHandoff";
+import { useDragDivider } from "@/composables/useDragDivider";
+import { useMobileInteractions } from "@/composables/useMobileInteractions";
+import { useSnackbar } from "@/composables/useSnackbar";
+import type { NarutoCard } from "@/interfaces/interfaces";
 
 const { user } = useUser();
 const { show: showSnackbar } = useSnackbar();

@@ -1,5 +1,5 @@
-import { createBuilderComposable } from "../tcg/createBuilderComposable";
-import type { DigimonCard } from "../../interfaces/interfaces";
+import { createBuilderComposable } from "@/composables/tcg/createBuilderComposable";
+import type { DigimonCard } from "@/interfaces/interfaces";
 
 function digimonImageKey(card: DigimonCard): string {
   if (!card.CardNumber) return "";

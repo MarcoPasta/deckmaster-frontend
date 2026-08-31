@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { useApi } from "../useApi";
+import { useApi } from "@/composables/useApi";
 
 /**
  * Static configuration that differs per TCG game.

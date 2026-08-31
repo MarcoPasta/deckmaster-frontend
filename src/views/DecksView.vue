@@ -2,17 +2,17 @@
 import { useUser } from "@clerk/vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useApi } from "../composables/useApi";
-import { useSnackbar } from "../composables/useSnackbar";
+import { useApi } from "@/composables/useApi";
+import { useSnackbar } from "@/composables/useSnackbar";
 import {
   cardName,
   isMissionCard as isMissionCardFor,
   useTcgDecks,
   type AnyCard,
   type AnyDeck,
-} from "../composables/tcg/adapters";
-import { writeBuilderHandoff } from "../composables/tcg/builderHandoff";
-import type { NarutoCard, PokemonCard } from "../interfaces/interfaces";
+} from "@/composables/tcg/adapters";
+import { writeBuilderHandoff } from "@/composables/tcg/builderHandoff";
+import type { NarutoCard, PokemonCard } from "@/interfaces/interfaces";
 
 const router = useRouter();
 const { user } = useUser();

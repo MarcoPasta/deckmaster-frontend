@@ -6,14 +6,14 @@ import type {
   NarutoDecks,
   PokemonCard,
   PokemonDecks,
-} from "../../interfaces/interfaces";
-import { useDigimonBuilder } from "../digimon/useDigimonBuilder";
-import { useDigimonDecks } from "../digimon/useDigimonDecks";
-import { useNarutoBuilder } from "../naruto/useNarutoBuilder";
-import { useNarutoDecks } from "../naruto/useNarutoDecks";
-import { usePokemonBuilder } from "../pokemon/usePokemonBuilder";
-import { usePokemonDecks } from "../pokemon/usePokemonDecks";
-import { useTcgState, type TcgType } from "../useTcgState";
+} from "@/interfaces/interfaces";
+import { useDigimonBuilder } from "@/composables/digimon/useDigimonBuilder";
+import { useDigimonDecks } from "@/composables/digimon/useDigimonDecks";
+import { useNarutoBuilder } from "@/composables/naruto/useNarutoBuilder";
+import { useNarutoDecks } from "@/composables/naruto/useNarutoDecks";
+import { usePokemonBuilder } from "@/composables/pokemon/usePokemonBuilder";
+import { usePokemonDecks } from "@/composables/pokemon/usePokemonDecks";
+import { useTcgState, type TcgType } from "@/composables/useTcgState";
 
 export type AnyCard = PokemonCard | NarutoCard | DigimonCard;
 export type AnyDeck = PokemonDecks | NarutoDecks | DigimonDecks;

@@ -1,5 +1,5 @@
-import type { NarutoCard, NarutoDecks } from "../../interfaces/interfaces";
-import { createDecksComposable } from "../tcg/createDecksComposable";
+import type { NarutoCard, NarutoDecks } from "@/interfaces/interfaces";
+import { createDecksComposable } from "@/composables/tcg/createDecksComposable";
 
 function narutoImageKey(card: NarutoCard): string {
   if (!card.card_number || !card.rarity) return "";
