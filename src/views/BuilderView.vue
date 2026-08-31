@@ -4,20 +4,16 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import CardTooltip from "../components/CardTooltip.vue";
 import DeckPanel from "../components/DeckPanel.vue";
 import VirtualCardGrid from "../components/VirtualCardGrid.vue";
-import { useDigimonBuilder } from "../composables/digimon/useDigimonBuilder";
+import {
+  cardName,
+  isMissionCard as isMissionCardFor,
+  useTcgBuilder,
+  type AnyCard,
+} from "../composables/tcg/adapters";
 import { useDragDivider } from "../composables/useDragDivider";
 import { useMobileInteractions } from "../composables/useMobileInteractions";
-import { useNarutoBuilder } from "../composables/naruto/useNarutoBuilder";
-import { usePokemonBuilder } from "../composables/pokemon/usePokemonBuilder";
 import { useSnackbar } from "../composables/useSnackbar";
-import { useTcgState } from "../composables/useTcgState";
-import type {
-  DigimonCard,
-  NarutoCard,
-  PokemonCard,
-} from "../interfaces/interfaces";
-
-type AnyCard = PokemonCard | NarutoCard | DigimonCard;
+import type { NarutoCard } from "../interfaces/interfaces";
 
 const STORAGE_KEY = "builder-deck";
 const STORAGE_NAME_KEY = "builder-deck-name";
@@ -26,36 +22,19 @@ const STORAGE_COVER_KEY = "builder-deck-cover";
 
 const { user } = useUser();
 const { show: showSnackbar } = useSnackbar();
-const { selectedTcg } = useTcgState();
-const pokemon = usePokemonBuilder();
-const naruto = useNarutoBuilder();
-const digimon = useDigimonBuilder();
+const { selectedTcg, builder } = useTcgBuilder();
 
 const builderEl = ref<HTMLElement | null>(null);
 const { splitPercent, dragging, startDrag } = useDragDivider(builderEl);
 
-const filters = computed(() => {
-  if (selectedTcg.value === "naruto") return naruto.filters;
-  if (selectedTcg.value === "digimon") return digimon.filters;
-  return pokemon.filters;
-});
+const filters = computed(() => builder.value.filters);
 
 function getCardImage(card: AnyCard): string {
-  if (selectedTcg.value === "naruto") return naruto.getCardImage(card as NarutoCard);
-  if (selectedTcg.value === "digimon") return digimon.getCardImage(card as DigimonCard);
-  return pokemon.getCardImage(card as PokemonCard);
+  return builder.value.getCardImage(card);
 }
 
 function cardKey(card: AnyCard): string {
-  if (selectedTcg.value === "naruto") return naruto.cardKey(card as NarutoCard);
-  if (selectedTcg.value === "digimon") return digimon.cardKey(card as DigimonCard);
-  return pokemon.cardKey(card as PokemonCard);
-}
-
-function cardName(card: AnyCard): string {
-  if ("Name" in card) return card.Name ?? "";
-  if ("name" in card) return card.name ?? "";
-  return "";
+  return builder.value.cardKey(card);
 }
 
 const searchQuery = ref("");
@@ -65,26 +44,16 @@ const saving = ref(false);
 const chosenCards = ref<AnyCard[]>(JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "[]"));
 
 watch(selectedTcg, () => { chosenCards.value = []; activeFilter.value = "all"; searchQuery.value = ""; });
-watch(selectedTcg, (tcg) => {
-  if (tcg === "naruto") naruto.fetchCards();
-  else if (tcg === "digimon") digimon.fetchCards();
-  else pokemon.fetchCards();
-}, { immediate: true });
+watch(selectedTcg, () => { builder.value.fetchCards(); }, { immediate: true });
 
-const isLoading = computed(() => {
-  if (selectedTcg.value === "naruto") return naruto.loading.value;
-  if (selectedTcg.value === "digimon") return digimon.loading.value;
-  return pokemon.loading.value;
-});
+const isLoading = computed(() => builder.value.loading.value);
 
 watch(chosenCards, (val) => sessionStorage.setItem(STORAGE_KEY, JSON.stringify(val)), { deep: true });
 watch(deckName, (val) => sessionStorage.setItem(STORAGE_NAME_KEY, val));
 
-const allFilteredCards = computed(() => {
-  if (selectedTcg.value === "naruto") return naruto.filterCards(naruto.allCards.value, searchQuery.value, activeFilter.value);
-  if (selectedTcg.value === "digimon") return digimon.filterCards(digimon.allCards.value, searchQuery.value, activeFilter.value);
-  return pokemon.filterCards(pokemon.allCards.value, searchQuery.value, activeFilter.value);
-});
+const allFilteredCards = computed(() =>
+  builder.value.filterCards(builder.value.allCards.value, searchQuery.value, activeFilter.value),
+);
 
 const filteredMissionCards = computed(() =>
   selectedTcg.value === "naruto"
@@ -101,7 +70,7 @@ const filteredCards = computed(() =>
 interface CardGroup { card: AnyCard; key: string; count: number; }
 
 function isMissionCard(card: AnyCard): boolean {
-  return selectedTcg.value === "naruto" && (card as NarutoCard).group?.toLowerCase() === "mission";
+  return isMissionCardFor(card, selectedTcg.value);
 }
 
 const groupedChosenCards = computed<CardGroup[]>(() => {
@@ -160,16 +129,9 @@ async function saveDeck() {
     const id = sessionStorage.getItem(STORAGE_ID_KEY);
     const cover = sessionStorage.getItem(STORAGE_COVER_KEY)
       || String(chosenCards.value[0]?.ID);
-    if (selectedTcg.value === "naruto") {
-      if (id !== null) await naruto.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as NarutoCard[], cover);
-      else await naruto.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as NarutoCard[], cover);
-    } else if (selectedTcg.value === "digimon") {
-      if (id !== null) await digimon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as DigimonCard[], cover);
-      else await digimon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as DigimonCard[], cover);
-    } else {
-      if (id !== null) await pokemon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as PokemonCard[], cover);
-      else await pokemon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as PokemonCard[], cover);
-    }
+    const name = deckName.value.trim();
+    if (id !== null) await builder.value.updateDeck(Number(id), name, chosenCards.value, cover);
+    else await builder.value.saveDeck(user.value!.id, name, chosenCards.value, cover);
     chosenCards.value = [];
     deckName.value = "";
     sessionStorage.removeItem(STORAGE_KEY);
@@ -188,10 +150,7 @@ async function saveDeck() {
 async function importDeck() {
   try {
     const text = await navigator.clipboard.readText();
-    let imported: AnyCard[];
-    if (selectedTcg.value === "naruto") imported = await naruto.parseDeckList(text);
-    else if (selectedTcg.value === "digimon") imported = digimon.parseDeckList(text, digimon.allCards.value);
-    else imported = await pokemon.parseDeckList(text);
+    const imported = await builder.value.parseDeckList(text, builder.value.allCards.value);
     if (imported.length > 0) {
       chosenCards.value = imported;
       showSnackbar(`Imported ${imported.length} cards`, "success");

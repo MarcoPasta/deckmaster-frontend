@@ -2,82 +2,49 @@
 import { useUser } from "@clerk/vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useDigimonDecks } from "../composables/digimon/useDigimonDecks";
-import { useNarutoDecks } from "../composables/naruto/useNarutoDecks";
-import { usePokemonDecks } from "../composables/pokemon/usePokemonDecks";
 import { useApi } from "../composables/useApi";
 import { useSnackbar } from "../composables/useSnackbar";
-import { useTcgState } from "../composables/useTcgState";
-import type {
-  DigimonCard,
-  DigimonDecks,
-  NarutoCard,
-  NarutoDecks,
-  PokemonCard,
-  PokemonDecks,
-} from "../interfaces/interfaces";
-
-type AnyDeck = PokemonDecks | NarutoDecks | DigimonDecks;
-type AnyCard = PokemonCard | NarutoCard | DigimonCard;
+import {
+  cardName,
+  isMissionCard as isMissionCardFor,
+  useTcgDecks,
+  type AnyCard,
+  type AnyDeck,
+} from "../composables/tcg/adapters";
+import type { NarutoCard, PokemonCard } from "../interfaces/interfaces";
 
 const router = useRouter();
 const { user } = useUser();
-const { selectedTcg } = useTcgState();
 const { getBlob, post } = useApi();
 const { show: showSnackbar } = useSnackbar();
+const { selectedTcg, decks: decksAdapter } = useTcgDecks(() => user.value?.id);
 
-const pokemonDecks = usePokemonDecks(() => user.value?.id);
-const narutoDecks = useNarutoDecks(() => user.value?.id);
-const digimonDecks = useDigimonDecks(() => user.value?.id);
-
-const decks = computed<AnyDeck[]>(() => {
-  if (selectedTcg.value === "naruto") return narutoDecks.decks.value;
-  if (selectedTcg.value === "digimon") return digimonDecks.decks.value;
-  return pokemonDecks.decks.value;
-});
+const decks = computed<AnyDeck[]>(() => decksAdapter.value.decks.value);
 
 function getPreviewImage(deck: AnyDeck): string {
-  if (selectedTcg.value === "naruto")
-    return narutoDecks.getPreviewImage(deck as NarutoDecks);
-  if (selectedTcg.value === "digimon")
-    return digimonDecks.getPreviewImage(deck as DigimonDecks);
-  return pokemonDecks.getPreviewImage(deck as PokemonDecks);
+  return decksAdapter.value.getPreviewImage(deck);
 }
 
 function getCardImage(card: AnyCard): string {
-  if (selectedTcg.value === "naruto")
-    return narutoDecks.getCardImage(card as NarutoCard);
-  if (selectedTcg.value === "digimon")
-    return digimonDecks.getCardImage(card as DigimonCard);
-  return pokemonDecks.getCardImage(card as PokemonCard);
+  return decksAdapter.value.getCardImage(card);
 }
 
 function buildDeckText(deck: AnyDeck): string {
-  if (selectedTcg.value === "naruto")
-    return narutoDecks.buildDeckText(deck as NarutoDecks);
-  if (selectedTcg.value === "digimon")
-    return digimonDecks.buildDeckText(deck as DigimonDecks);
-  return pokemonDecks.buildDeckText(deck as PokemonDecks);
+  return decksAdapter.value.buildDeckText(deck);
 }
 
 async function deleteDeckLocal(id: number) {
-  if (selectedTcg.value === "naruto") return narutoDecks.deleteDeck(id);
-  if (selectedTcg.value === "digimon") return digimonDecks.deleteDeck(id);
-  return pokemonDecks.deleteDeck(id);
+  return decksAdapter.value.deleteDeck(id);
 }
 
 async function updateCoverCardLocal(deckId: number, cardId: number) {
-  if (selectedTcg.value === "naruto")
-    return narutoDecks.updateCoverCard(deckId, cardId);
-  if (selectedTcg.value === "digimon")
-    return digimonDecks.updateCoverCard(deckId, cardId);
-  return pokemonDecks.updateCoverCard(deckId, cardId);
+  return decksAdapter.value.updateCoverCard(deckId, cardId);
 }
 
 function deckCardCount(deck: AnyDeck): number {
   if (selectedTcg.value !== "naruto") return deck.entries?.length ?? 0;
   return (deck.entries ?? []).filter(
-    (e) => (e.card as NarutoCard).group?.toLowerCase() !== "mission",
+    (e) => !isMissionCardFor(e.card as AnyCard, selectedTcg.value),
   ).length;
 }
 
@@ -99,10 +66,7 @@ onMounted(() => window.addEventListener("resize", onResize));
 onUnmounted(() => window.removeEventListener("resize", onResize));
 
 function isNarutoMission(card: AnyCard): boolean {
-  return (
-    selectedTcg.value === "naruto" &&
-    (card as NarutoCard).group?.toLowerCase() === "mission"
-  );
+  return isMissionCardFor(card, selectedTcg.value);
 }
 
 const groupedEntries = computed(() => {
@@ -338,7 +302,7 @@ function deleteDeck() {
                 v-if="getCardImage(group.card)"
                 :src="getCardImage(group.card)"
                 :alt="
-                  (group.card as any).Name ?? (group.card as any).name ?? ''
+                  cardName(group.card)
                 "
                 :class="[
                   'dialog-mission-img',
@@ -361,7 +325,7 @@ function deleteDeck() {
             <img
               v-if="getCardImage(group.card)"
               :src="getCardImage(group.card)"
-              :alt="(group.card as any).Name ?? (group.card as any).name ?? ''"
+              :alt="cardName(group.card)"
               :class="['dialog-card-img', { 'cover-candidate': choosingCover }]"
             />
             <span v-if="group.count > 1" class="dialog-card-count">
@@ -460,7 +424,7 @@ function deleteDeck() {
             <img
               v-if="getCardImage(card)"
               :src="getCardImage(card)"
-              :alt="(card as any).Name ?? (card as any).name ?? ''"
+              :alt="cardName(card)"
               class="dialog-card-img"
             />
           </div>
@@ -480,7 +444,7 @@ function deleteDeck() {
               <img
                 v-if="getCardImage(card)"
                 :src="getCardImage(card)"
-                :alt="(card as any).Name ?? (card as any).name ?? ''"
+                :alt="cardName(card)"
                 class="dialog-card-img"
               />
             </div>
