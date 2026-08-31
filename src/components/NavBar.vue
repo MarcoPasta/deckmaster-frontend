@@ -6,10 +6,22 @@ import AppAvatar from "./AppAvatar.vue";
 
 const { selectedTcg, setTcg } = useTcgState();
 const { user } = useUser();
+
+/**
+ * `true` when the signed-in user has `publicMetadata.role === "admin"`.
+ * Admin-only nav items (Upload, Card Editor) are shown only when this is true.
+ */
 const isAdmin = computed(
   () => (user.value?.publicMetadata as { role?: string })?.role === "admin",
 );
 
+/**
+ * Route entries rendered in the desktop nav bar and the mobile sidebar.
+ *
+ * `ShowWhen: "signed-in"` — rendered inside a Clerk `<Show when="signed-in">` wrapper.
+ * `adminOnly: true`       — rendered only when `isAdmin` is true.
+ * No flag                  — always rendered.
+ */
 const navItems = [
   { label: "Home", path: "/" },
   { label: "Builder", path: "/builder" },
@@ -19,13 +31,23 @@ const navItems = [
   { label: "Profile", path: "/profile", ShowWhen: "signed-in" as const },
 ];
 
+/**
+ * TCGs the user can switch between via the dropdown.
+ * Digimon is intentionally excluded — it is implemented but not yet
+ * surfaced (see `useTcgState.ENABLED_TCGS`).
+ */
 const tcgOptions: { label: string; value: TcgType }[] = [
   { label: "Pokémon", value: "pokemon" },
   { label: "Naruto Mythos", value: "naruto" },
 ];
+
+/** Controls the TCG dropdown menu visibility. */
 const tcgMenuOpen = ref(false);
+
+/** Controls the mobile sidebar visibility. */
 const mobileMenuOpen = ref(false);
 
+/** Label for the currently selected TCG shown in the dropdown trigger button. */
 const tcgLabel = () =>
   tcgOptions.find((o) => o.value === selectedTcg.value)?.label ?? "Pokémon";
 </script>

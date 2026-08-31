@@ -1,15 +1,44 @@
 <script setup lang="ts">
+/**
+ * VirtualCardGrid — a virtualised scrolling grid for large card catalogues.
+ *
+ * Uses TanStack Virtual to render only the rows currently in the viewport,
+ * keeping the DOM size constant regardless of how many cards the server
+ * returns.  Cards are laid out in a CSS Grid whose column count is
+ * determined either by `targetCardWidth` (fluid, container-based) or falls
+ * back to fixed breakpoint values.
+ *
+ * Slots:
+ * - `#card({ card, index })` — required; renders a single card cell.
+ * - `#header`               — optional; rendered above the virtual list.
+ * - `#footer`               — optional; rendered below the virtual list
+ *   (used by BuilderView for the Naruto mission card section).
+ *
+ * Exposed methods:
+ * - `scrollToTop()` — scroll the grid back to the first row (called when
+ *   the search query or active filter changes).
+ */
 import { useVirtualizer } from "@tanstack/vue-virtual";
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 const props = withDefaults(
   defineProps<{
+    /** Full card array (all items, not just the visible slice). */
     cards: unknown[];
+    /** Row height estimate in pixels when `targetCardWidth` is not set. */
     estimateSize?: number;
+    /**
+     * Target pixel width for each card cell.  When > 0 the grid calculates
+     * the column count from the actual container width so columns are always
+     * as close to this width as possible.  When 0 fixed breakpoints are used.
+     */
     targetCardWidth?: number;
+    /** Horizontal gap between card cells in pixels. */
     colGap?: number;
+    /** Vertical gap between rows in pixels (added to the estimated row height). */
     rowGap?: number;
+    /** Extra padding at the top of the scrollable list in pixels. */
     paddingStart?: number;
   }>(),
   {
@@ -22,6 +51,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
+  /** Emitted when a card cell is clicked. */
   "card-click": [card: unknown, index: number];
 }>();
 
@@ -31,12 +61,28 @@ defineSlots<{
   footer?(): unknown;
 }>();
 
+/** Template ref for the scrolling container element. */
 const cardGridEl = ref<HTMLElement | null>(null);
 const { smAndDown, xs } = useDisplay();
+/** `true` on narrow screens (smAndDown) — switches to fewer columns. */
 const isNarrow = smAndDown;
+/** `true` on mobile (xs) — minimal column count for thumb-friendly tap targets. */
 const isMobile = xs;
+
+/**
+ * Observed pixel width of the container element.
+ * Updated by a `ResizeObserver` so column counts are always correct even
+ * when the container resizes without a window resize event (e.g. the split
+ * divider being dragged in BuilderView).
+ */
 const containerWidth = ref(0);
 
+/**
+ * Number of columns in the grid.
+ *
+ * When `targetCardWidth` is set: fluid — derived from `containerWidth`.
+ * Otherwise: fixed breakpoints based on Vuetify display helpers.
+ */
 const columnCount = computed(() => {
   if (props.targetCardWidth > 0 && containerWidth.value > 0) {
     return Math.max(
@@ -51,15 +97,24 @@ const columnCount = computed(() => {
   return 9;
 });
 
+/**
+ * Height of each virtual row in pixels.
+ *
+ * When `targetCardWidth` is set: derived from the actual column width and
+ * the 5:7 card aspect ratio plus `rowGap`.
+ * Otherwise: `estimateSize` prop.
+ */
 const itemSize = computed(() => {
   if (props.targetCardWidth > 0 && containerWidth.value > 0) {
     const cols = columnCount.value;
     const colWidth = (containerWidth.value - props.colGap * (cols - 1)) / cols;
+    // Cards have a portrait 5:7 aspect ratio; add rowGap for inter-row spacing.
     return colWidth * (7 / 5) + props.rowGap;
   }
   return props.estimateSize;
 });
 
+/** Re-measure the virtualiser when the window resizes. */
 function onResize() {
   rowVirtualizer.value.measure();
 }
@@ -67,10 +122,17 @@ function onResize() {
 onMounted(() => window.addEventListener("resize", onResize));
 onUnmounted(() => window.removeEventListener("resize", onResize));
 
+/** Total number of virtual rows needed to display all cards. */
 const rowCount = computed(() =>
   Math.ceil(props.cards.length / columnCount.value),
 );
 
+/**
+ * TanStack row virtualiser.
+ *
+ * `overscan: 3` renders three extra rows above and below the viewport to
+ * prevent visible blank rows during fast scrolling.
+ */
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: rowCount.value,
@@ -81,6 +143,11 @@ const rowVirtualizer = useVirtualizer(
   })),
 );
 
+/**
+ * Watch the container element and attach a ResizeObserver so `containerWidth`
+ * stays accurate when the parent pane is resized (e.g. drag-divider).
+ * The `cleanup` callback disconnects the observer on component unmount.
+ */
 watch(cardGridEl, (el, _prev, cleanup) => {
   if (el) containerWidth.value = el.clientWidth;
   const observer = new ResizeObserver(() => {
@@ -91,6 +158,8 @@ watch(cardGridEl, (el, _prev, cleanup) => {
   cleanup(() => observer.disconnect());
 });
 
+/** Returns the card at a given row + column position, or `undefined` for
+ *  empty cells in the last partial row. */
 function getCardAtPosition(
   rowIndex: number,
   colIndex: number,
@@ -98,6 +167,7 @@ function getCardAtPosition(
   return props.cards[rowIndex * columnCount.value + colIndex];
 }
 
+/** Scroll the grid back to position 0 (called on filter/search changes). */
 function scrollToTop() {
   if (cardGridEl.value) cardGridEl.value.scrollTop = 0;
 }
