@@ -11,6 +11,7 @@ import {
   type AnyCard,
   type AnyDeck,
 } from "../composables/tcg/adapters";
+import { writeBuilderHandoff } from "../composables/tcg/builderHandoff";
 import type { NarutoCard, PokemonCard } from "../interfaces/interfaces";
 
 const router = useRouter();
@@ -124,13 +125,12 @@ function selectCoverCard(card: AnyCard) {
 
 function editDeck() {
   if (!selectedDeck.value) return;
-  sessionStorage.setItem(
-    "builder-deck",
-    JSON.stringify(selectedDeck.value.entries.map((e) => e.card)),
-  );
-  sessionStorage.setItem("builder-deck-name", selectedDeck.value.name);
-  sessionStorage.setItem("builder-deck-id", String(selectedDeck.value.ID));
-  sessionStorage.setItem("builder-deck-cover", selectedDeck.value.cover ?? "");
+  writeBuilderHandoff({
+    cards: selectedDeck.value.entries.map((e) => e.card),
+    name: selectedDeck.value.name,
+    deckId: String(selectedDeck.value.ID),
+    cover: selectedDeck.value.cover ?? "",
+  });
   dialogOpen.value = false;
   router.push({ name: "Builder", params: { deckId: selectedDeck.value.ID } });
 }

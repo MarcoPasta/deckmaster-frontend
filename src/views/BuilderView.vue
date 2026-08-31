@@ -10,15 +10,15 @@ import {
   useTcgBuilder,
   type AnyCard,
 } from "../composables/tcg/adapters";
+import {
+  BUILDER_STORAGE,
+  clearBuilderHandoff,
+  readBuilderHandoff,
+} from "../composables/tcg/builderHandoff";
 import { useDragDivider } from "../composables/useDragDivider";
 import { useMobileInteractions } from "../composables/useMobileInteractions";
 import { useSnackbar } from "../composables/useSnackbar";
 import type { NarutoCard } from "../interfaces/interfaces";
-
-const STORAGE_KEY = "builder-deck";
-const STORAGE_NAME_KEY = "builder-deck-name";
-const STORAGE_ID_KEY = "builder-deck-id";
-const STORAGE_COVER_KEY = "builder-deck-cover";
 
 const { user } = useUser();
 const { show: showSnackbar } = useSnackbar();
@@ -37,19 +37,20 @@ function cardKey(card: AnyCard): string {
   return builder.value.cardKey(card);
 }
 
+const { cards: _initCards, name: _initName } = readBuilderHandoff();
 const searchQuery = ref("");
 const activeFilter = ref("all");
-const deckName = ref(sessionStorage.getItem(STORAGE_NAME_KEY) || "");
+const deckName = ref(_initName);
 const saving = ref(false);
-const chosenCards = ref<AnyCard[]>(JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "[]"));
+const chosenCards = ref<AnyCard[]>(_initCards as AnyCard[]);
 
 watch(selectedTcg, () => { chosenCards.value = []; activeFilter.value = "all"; searchQuery.value = ""; });
 watch(selectedTcg, () => { builder.value.fetchCards(); }, { immediate: true });
 
 const isLoading = computed(() => builder.value.loading.value);
 
-watch(chosenCards, (val) => sessionStorage.setItem(STORAGE_KEY, JSON.stringify(val)), { deep: true });
-watch(deckName, (val) => sessionStorage.setItem(STORAGE_NAME_KEY, val));
+watch(chosenCards, (val) => sessionStorage.setItem(BUILDER_STORAGE.DECK, JSON.stringify(val)), { deep: true });
+watch(deckName, (val) => sessionStorage.setItem(BUILDER_STORAGE.NAME, val));
 
 const allFilteredCards = computed(() =>
   builder.value.filterCards(builder.value.allCards.value, searchQuery.value, activeFilter.value),
@@ -116,28 +117,22 @@ function removeCard(card: AnyCard) {
 function clearDeck() {
   chosenCards.value = [];
   deckName.value = "";
-  sessionStorage.removeItem(STORAGE_KEY);
-  sessionStorage.removeItem(STORAGE_ID_KEY);
-  sessionStorage.removeItem(STORAGE_NAME_KEY);
-  sessionStorage.removeItem(STORAGE_COVER_KEY);
+  clearBuilderHandoff();
 }
 
 async function saveDeck() {
   if (!deckName.value.trim() || chosenCards.value.length === 0) return;
   saving.value = true;
   try {
-    const id = sessionStorage.getItem(STORAGE_ID_KEY);
-    const cover = sessionStorage.getItem(STORAGE_COVER_KEY)
+    const id = sessionStorage.getItem(BUILDER_STORAGE.ID);
+    const cover = sessionStorage.getItem(BUILDER_STORAGE.COVER)
       || String(chosenCards.value[0]?.ID);
     const name = deckName.value.trim();
     if (id !== null) await builder.value.updateDeck(Number(id), name, chosenCards.value, cover);
     else await builder.value.saveDeck(user.value!.id, name, chosenCards.value, cover);
     chosenCards.value = [];
     deckName.value = "";
-    sessionStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(STORAGE_NAME_KEY);
-    sessionStorage.removeItem(STORAGE_ID_KEY);
-    sessionStorage.removeItem(STORAGE_COVER_KEY);
+    clearBuilderHandoff();
     showSnackbar("Deck saved", "success");
   } catch (e) {
     console.error("Failed to save deck:", e);
