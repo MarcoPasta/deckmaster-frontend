@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, ref } from "vue";
+import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useSnackbar } from "@/composables/useSnackbar";
@@ -61,10 +62,7 @@ const dialogOpen = ref(false);
 const selectedDeck = ref<AnyDeck | null>(null);
 const choosingCover = ref(false);
 
-const isMobile = ref(window.innerWidth <= 480);
-function onResize() { isMobile.value = window.innerWidth <= 480; }
-onMounted(() => window.addEventListener("resize", onResize));
-onUnmounted(() => window.removeEventListener("resize", onResize));
+const { xs: isMobile } = useDisplay();
 
 function isNarutoMission(card: AnyCard): boolean {
   return isMissionCardFor(card, selectedTcg.value);

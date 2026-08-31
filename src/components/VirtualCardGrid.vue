@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useVirtualizer } from "@tanstack/vue-virtual";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
+import { useDisplay } from "vuetify";
 
 const props = withDefaults(
   defineProps<{
@@ -31,8 +32,9 @@ defineSlots<{
 }>();
 
 const cardGridEl = ref<HTMLElement | null>(null);
-const isNarrow = ref(window.innerWidth < 1280);
-const isMobile = ref(window.innerWidth <= 480);
+const { smAndDown, xs } = useDisplay();
+const isNarrow = smAndDown;
+const isMobile = xs;
 const containerWidth = ref(0);
 
 const columnCount = computed(() => {
@@ -59,8 +61,6 @@ const itemSize = computed(() => {
 });
 
 function onResize() {
-  isNarrow.value = window.innerWidth < 1280;
-  isMobile.value = window.innerWidth <= 480;
   rowVirtualizer.value.measure();
 }
 

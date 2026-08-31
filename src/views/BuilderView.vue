@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
+import { useDisplay } from "vuetify";
 import CardTooltip from "@/components/CardTooltip.vue";
 import DeckPanel from "@/components/DeckPanel.vue";
 import VirtualCardGrid from "@/components/VirtualCardGrid.vue";
@@ -171,13 +172,11 @@ function showTooltip(card: AnyCard, event: MouseEvent) {
 function moveTooltip(event: MouseEvent) { tooltipPos.value = { x: event.clientX + 16, y: event.clientY + 16 }; }
 function hideTooltip() { tooltipVisible.value = false; }
 
-// Responsive
-const isNarrow = ref(window.innerWidth < 1366);
-const isMobile = ref(window.innerWidth <= 480);
-
-function onResize() { isNarrow.value = window.innerWidth < 1366; isMobile.value = window.innerWidth <= 480; }
-onMounted(() => window.addEventListener("resize", onResize));
-onUnmounted(() => window.removeEventListener("resize", onResize));
+// Responsive – use Vuetify's reactive display so no manual resize listeners needed.
+// smAndDown  = ≤960px (Vuetify md breakpoint), xs = ≤600px (mobile).
+const { smAndDown, xs } = useDisplay();
+const isNarrow = smAndDown;   // deck panel switches to compact grid
+const isMobile = xs;          // full mobile drawer experience (≤480px)
 
 // Mobile interactions
 const { mobileThumbnail, onTouchStart, onTouchMove, onMobileTap, onMobileOverlayTap } =
