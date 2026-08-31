@@ -118,7 +118,7 @@ defineExpose({ scrollToTop, columnCount });
         v-for="virtualRow in rowVirtualizer.getVirtualItems()"
         :key="virtualRow.index"
         :ref="
-          (el: any) => el && rowVirtualizer.measureElement(el)
+          (el: Element | null) => el && rowVirtualizer.measureElement(el as HTMLElement)
         "
         :data-index="virtualRow.index"
         class="virtual-row"

@@ -81,7 +81,7 @@ const groupedEntries = computed(() => {
     }
   }
   const typeOrder = (card: AnyCard): number => {
-    const t = ((card as any).CardType ?? "").toLowerCase();
+    const t = ((card as PokemonCard).CardType ?? "").toLowerCase();
     if (t === "pokemon" || t === "pokémon") return 0;
     if (t === "trainer") return 1;
     if (t === "energy" || t === "energie") return 2;

@@ -114,6 +114,16 @@ function removeImage() {
 // shown here read-only. Editable profile data is limited to the avatar,
 // social links and password.
 
+function extractErrorMessage(error: unknown, fallback: string): string {
+  const e = error as Record<string, unknown> | null;
+  const respData = (e?.response as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+  return (
+    (e?.errors as string[] | undefined)?.[0] ??
+    respData?.error as string ??
+    fallback
+  );
+}
+
 // Social links
 async function addSocialLink() {
   if (!newUrl.value) {
@@ -162,16 +172,9 @@ async function saveSocialLinks() {
     }
 
     showSnackbar("Social links updated", "success");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error saving social links:", error);
-
-    // Check if error response has validation errors
-    const errorMessage =
-      error?.response?.data?.errors?.join(", ") ||
-      error?.response?.data?.error ||
-      "Failed to save social links";
-
-    showSnackbar(errorMessage, "error");
+    showSnackbar(extractErrorMessage(error, "Failed to save social links"), "error");
   } finally {
     savingSocial.value = false;
   }
@@ -206,16 +209,9 @@ async function savePassword() {
     newPassword.value = "";
     confirmPassword.value = "";
     showSnackbar("Password updated successfully", "success");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating password:", error);
-
-    // Check if error response has validation errors
-    const errorMessage =
-      error?.errors?.[0]?.message ||
-      error?.response?.data?.error ||
-      "Failed to update password";
-
-    showSnackbar(errorMessage, "error");
+    showSnackbar(extractErrorMessage(error, "Failed to update password"), "error");
   } finally {
     savingPassword.value = false;
   }
