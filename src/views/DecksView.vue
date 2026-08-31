@@ -17,32 +17,49 @@ import type { NarutoCard, PokemonCard } from "@/interfaces/interfaces";
 
 const router = useRouter();
 const { user } = useUser();
+/** `getBlob` used for the deck-image download; `post` used for Cardmarket export. */
 const { getBlob, post } = useApi();
 const { show: showSnackbar } = useSnackbar();
+
+/**
+ * Registry adapter for the active TCG's decks.
+ * Fetches only the selected game's decks (not all three) — see `useTcgDecks`.
+ */
 const { selectedTcg, decks: decksAdapter } = useTcgDecks(() => user.value?.id);
 
+/** Reactive flat list of the user's decks for the active TCG. */
 const decks = computed<AnyDeck[]>(() => decksAdapter.value.decks.value);
 
+/** Returns the presigned thumbnail URL for a deck card. */
 function getPreviewImage(deck: AnyDeck): string {
   return decksAdapter.value.getPreviewImage(deck);
 }
 
+/** Returns the presigned image URL for a card inside a deck. */
 function getCardImage(card: AnyCard): string {
   return decksAdapter.value.getCardImage(card);
 }
 
+/** Serialise the deck into the game-specific clipboard export format. */
 function buildDeckText(deck: AnyDeck): string {
   return decksAdapter.value.buildDeckText(deck);
 }
 
+/** Optimistically delete the deck locally and then remove it on the server. */
 async function deleteDeckLocal(id: number) {
   return decksAdapter.value.deleteDeck(id);
 }
 
+/** PATCH the deck's cover card on the server. */
 async function updateCoverCardLocal(deckId: number, cardId: number) {
   return decksAdapter.value.updateCoverCard(deckId, cardId);
 }
 
+/**
+ * Returns the number of cards to display in the deck list card.
+ * Naruto decks exclude mission cards from the count since they are in a
+ * separate section and don't count toward the main deck size.
+ */
 function deckCardCount(deck: AnyDeck): number {
   if (selectedTcg.value !== "naruto") return deck.entries?.length ?? 0;
   return (deck.entries ?? []).filter(
@@ -50,6 +67,7 @@ function deckCardCount(deck: AnyDeck): number {
   ).length;
 }
 
+/** Format a date as `DD.MM.YYYY` for the deck creation date display. */
 function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -58,10 +76,21 @@ function formatDate(date: Date | string): string {
   });
 }
 
+// ── Dialog state ──────────────────────────────────────────────────────────
+
+/** Controls visibility of the deck actions dialog. */
 const dialogOpen = ref(false);
+
+/** The deck the user has clicked on and is currently viewing in the dialog. */
 const selectedDeck = ref<AnyDeck | null>(null);
+
+/**
+ * When `true` the deck card grid is in cover-selection mode: clicking a card
+ * sets it as the deck thumbnail instead of navigating or selecting normally.
+ */
 const choosingCover = ref(false);
 
+/** `true` on xs-width screens (≤600 px). */
 const { xs: isMobile } = useDisplay();
 
 function isNarutoMission(card: AnyCard): boolean {
@@ -133,6 +162,9 @@ function editDeck() {
   router.push({ name: "Builder", params: { deckId: selectedDeck.value.ID } });
 }
 
+// ── Share & export ────────────────────────────────────────────────────────
+
+/** Controls the share dropdown menu (Copy / Image / Cardmarket). */
 const shareMenuOpen = ref(false);
 
 async function copyAsText() {
@@ -148,7 +180,9 @@ async function copyAsText() {
   shareMenuOpen.value = false;
 }
 
+/** Controls the Cardmarket decklist dialog (separate from the share menu). */
 const cardmarketOpen = ref(false);
+/** The Cardmarket-formatted decklist text returned by the backend. */
 const cardmarketText = ref("");
 
 async function copyForCardmarket() {
@@ -204,8 +238,13 @@ async function copyAsImage() {
   shareMenuOpen.value = false;
 }
 
+// ── Testhand simulator ────────────────────────────────────────────────────
+
+/** Controls the test-hand dialog visibility. */
 const testhandOpen = ref(false);
+/** The 5–7 randomly drawn cards shown in the test-hand grid. */
 const testhandCards = ref<AnyCard[]>([]);
+/** Cards pre-set aside for the "when keeping" section (Naruto only). */
 const testhandKeepingCards = ref<AnyCard[]>([]);
 
 function drawTesthand() {
