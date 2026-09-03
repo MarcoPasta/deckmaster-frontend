@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Show, SignInButton, UserButton, useUser } from "@clerk/vue";
+import { Show, SignInButton, useUser } from "@clerk/vue";
 import { computed, ref } from "vue";
 import { useTcgState, type TcgType } from "../composables/useTcgState";
+import AppAvatar from "./AppAvatar.vue";
 
 const { selectedTcg, setTcg } = useTcgState();
 const { user } = useUser();
@@ -15,7 +16,7 @@ const navItems = [
   { label: "Decks", path: "/decks", ShowWhen: "signed-in" as const },
   { label: "Upload", path: "/upload", adminOnly: true },
   { label: "Cardeditor", path: "/cardeditor", adminOnly: true },
-  // { label: "Profile", path: "/profile" },
+  { label: "Profile", path: "/profile", ShowWhen: "signed-in" as const },
 ];
 
 const tcgOptions: { label: string; value: TcgType }[] = [
@@ -33,7 +34,7 @@ const tcgLabel = () =>
   <nav class="navbar">
     <div class="nav-item nav-user">
       <Show when="signed-in">
-        <UserButton />
+        <AppAvatar />
       </Show>
       <Show when="signed-out">
         <SignInButton />

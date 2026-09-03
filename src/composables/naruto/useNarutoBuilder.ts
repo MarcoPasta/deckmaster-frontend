@@ -27,14 +27,18 @@ export function useNarutoBuilder() {
     }
   }
 
-  function getCardImage(card: NarutoCard): string {
+  function imageKey(card: NarutoCard): string {
     if (!card.card_number || !card.rarity) return "";
     const number =
       card.rarity === "MSS"
         ? card.card_number
         : card.card_number.padStart(3, "0");
-    const key = `cards/naruto/${card.set}_${number}_${card.rarity}.webp`;
-    return imageUrls.value[key] || "";
+    return `cards/naruto/${card.set}_${number}_${card.rarity}.webp`;
+  }
+
+  function getCardImage(card: NarutoCard): string {
+    const key = imageKey(card);
+    return key ? imageUrls.value[key] || "" : "";
   }
 
   function cardKey(card: NarutoCard): string {
@@ -118,6 +122,7 @@ export function useNarutoBuilder() {
     fetchCards,
     filters,
     getCardImage,
+    imageKey,
     cardKey,
     filterCards,
     parseDeckList,

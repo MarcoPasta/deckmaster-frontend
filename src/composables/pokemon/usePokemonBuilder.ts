@@ -27,11 +27,15 @@ export function usePokemonBuilder() {
     }
   }
 
-  function getCardImage(card: PokemonCard): string {
+  function imageKey(card: PokemonCard): string {
     if (!card.CardNumber || !card.Code) return "";
     const number = card.CardNumber.split("/")[0];
-    const key = `cards/pokemon/${card.Code}_${number}.png`;
-    return imageUrls.value[key] || "";
+    return `cards/pokemon/${card.Code}_${number}.png`;
+  }
+
+  function getCardImage(card: PokemonCard): string {
+    const key = imageKey(card);
+    return key ? imageUrls.value[key] || "" : "";
   }
 
   function cardKey(card: PokemonCard): string {
@@ -53,9 +57,6 @@ export function usePokemonBuilder() {
         if (activeFilter === "energy") {
           matchesFilter = type === "energie" || type === "energy";
         } else {
-          console.log("activeFilter: ", activeFilter.toLowerCase());
-          console.log("selected type: ", type);
-          console.log("does it match: ", type === activeFilter.toLowerCase());
           matchesFilter = type === activeFilter.toLowerCase();
         }
       }
@@ -115,6 +116,7 @@ export function usePokemonBuilder() {
     fetchCards,
     filters,
     getCardImage,
+    imageKey,
     cardKey,
     filterCards,
     parseDeckList,

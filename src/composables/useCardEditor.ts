@@ -170,7 +170,7 @@ export function useCardEditor() {
         await patch(`/admin/pokemon/card/${id}`, body);
         if (imageFile.value) {
           const card = selectedCard.value as PokemonCard;
-          const objectKey = `cards/pokemon/${card.Code}_${card.CardNumber}.png`;
+          const objectKey = pokemon.imageKey(card);
           const { url } = await get<{ url: string }>(
             "/admin/bucket/presign-put",
             { key: objectKey },
@@ -188,8 +188,7 @@ export function useCardEditor() {
         await patch(`/admin/naruto/card/${id}`, body);
         if (imageFile.value) {
           const card = selectedCard.value as NarutoCard;
-          const paddedNumber = card.card_number.padStart(3, "0");
-          const objectKey = `cards/naruto/ks_${paddedNumber}_${card.rarity}.webp`;
+          const objectKey = naruto.imageKey(card);
           const { url } = await get<{ url: string }>(
             "/admin/bucket/presign-put",
             { key: objectKey },

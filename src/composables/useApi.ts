@@ -28,8 +28,6 @@ export function useApi() {
   async function post<T>(path: string, body?: unknown) {
     loading.value = true;
     error.value = null;
-
-    console.log("post request body: ", body);
     try {
       const token = await getToken();
       return await api.post<T>(path, token, { body });
