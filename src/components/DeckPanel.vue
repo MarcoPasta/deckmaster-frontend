@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DigimonCard, NarutoCard, PokemonCard } from "../interfaces/interfaces";
+import type { DigimonCard, NarutoCard, PokemonCard } from "@/interfaces/interfaces";
 
 type AnyCard = PokemonCard | NarutoCard | DigimonCard;
 

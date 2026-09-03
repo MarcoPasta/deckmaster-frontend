@@ -67,13 +67,13 @@ const imageInputRef = ref<HTMLInputElement | null>(null);
           <v-text-field
             v-for="field in scalarFields"
             :key="field.key"
-            :model-value="(editForm as any)[field.key]"
+            :model-value="editForm[field.key]"
             :label="field.label"
             :type="field.type"
             variant="outlined"
             density="compact"
             hide-details
-            @update:model-value="(editForm as any)[field.key] = $event"
+            @update:model-value="editForm[field.key] = $event"
           />
         </div>
 

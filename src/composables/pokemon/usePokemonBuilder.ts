@@ -1,126 +1,89 @@
-import { ref } from "vue";
-import type { PokemonCard } from "../../interfaces/interfaces";
-import { useApi } from "../useApi";
+import { useApi } from "@/composables/useApi";
+import { createBuilderComposable } from "@/composables/tcg/createBuilderComposable";
+import type { PokemonCard } from "@/interfaces/interfaces";
 
+/**
+ * Derives the canonical object-storage key for a Pokémon card's image.
+ *
+ * Key format: `cards/pokemon/{Code}_{number}.png`
+ *
+ * `CardNumber` can contain a set-total suffix (e.g. `"025/198"`); we only
+ * want the card number before the slash.  `Code` is the set abbreviation
+ * used as a directory prefix (e.g. `"swsh12"`).
+ */
+function pokemonImageKey(card: PokemonCard): string {
+  if (!card.CardNumber || !card.Code) return "";
+  const number = card.CardNumber.split("/")[0];
+  return `cards/pokemon/${card.Code}_${number}.png`;
+}
+
+/**
+ * Pre-built base composable shared by all `usePokemonBuilder` calls.
+ * Instantiated once at module level so the factory overhead runs once, not
+ * on every component setup.
+ */
+const _useBase = createBuilderComposable<PokemonCard>({
+  cardsPath: "/pokemon/cards",
+  imagesPath: "/pokemon/cards/images",
+  filters: ["All", "Pokemon", "Trainer", "Energy"],
+  cardImageKey: pokemonImageKey,
+  /** Composite key of set code + card number — unique across all sets. */
+  cardKey: (card) => `${card.Code}_${card.CardNumber}`,
+  matchesFilter: (card, activeFilter) => {
+    const type = (card.CardType ?? "").toLowerCase();
+    // The backend stores energy type as both "energy" (EN) and "energie" (DE).
+    if (activeFilter === "energy") return type === "energie" || type === "energy";
+    return type === activeFilter.toLowerCase();
+  },
+  buildSaveBody: (userId, name, cards, cover) => ({
+    UserId: userId,
+    Name: name,
+    CoverCard: cover,
+    Entries: cards.map((card) => ({ cardId: card.ID })),
+  }),
+  buildUpdateBody: (deckId, name, cards, cover) => ({
+    DeckId: deckId,
+    Name: name,
+    Entries: cards.map((card) => ({ cardId: card.ID })),
+    CoverCard: cover,
+  }),
+  createPath: "/auth/pokemon/decks/create",
+  updatePath: (id) => `/auth/pokemon/decks/${id}/update`,
+});
+
+/**
+ * Builder composable for the Pokémon TCG.
+ *
+ * Extends the generic base from `createBuilderComposable` with a
+ * Pokémon-specific `parseDeckList` implementation that sends the raw
+ * decklist text to the backend for parsing (the server handles all the
+ * PTCGO/PTCGL format quirks and returns the matching card objects).
+ */
 export function usePokemonBuilder() {
-  const { get, post, put } = useApi();
+  const base = _useBase();
+  const { get } = useApi();
 
-  const allCards = ref<PokemonCard[]>([]);
-  const imageUrls = ref<Record<string, string>>({});
-  const loading = ref(false);
-  const filters = ["All", "Pokemon", "Trainer", "Energy"];
-
-  async function fetchCards() {
-    if (allCards.value.length > 0) return;
-    loading.value = true;
-    try {
-      const [cardData, imageData] = await Promise.all([
-        get<{ content: PokemonCard[] }>("/pokemon/cards"),
-        get<{ images: Record<string, string> }>("/pokemon/cards/images"),
-      ]);
-      allCards.value = cardData.content;
-      imageUrls.value = imageData.images;
-    } catch (e) {
-      console.error("Failed to fetch cards:", e);
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  function imageKey(card: PokemonCard): string {
-    if (!card.CardNumber || !card.Code) return "";
-    const number = card.CardNumber.split("/")[0];
-    return `cards/pokemon/${card.Code}_${number}.png`;
-  }
-
-  function getCardImage(card: PokemonCard): string {
-    const key = imageKey(card);
-    return key ? imageUrls.value[key] || "" : "";
-  }
-
-  function cardKey(card: PokemonCard): string {
-    return `${card.Code}_${card.CardNumber}`;
-  }
-
-  function filterCards(
-    cards: PokemonCard[],
-    searchQuery: string,
-    activeFilter: string,
-  ): PokemonCard[] {
-    return cards.filter((card) => {
-      const matchesSearch = (card.Name ?? "")
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      let matchesFilter = activeFilter === "all";
-      if (!matchesFilter) {
-        const type = (card.CardType ?? "").toLowerCase();
-        if (activeFilter === "energy") {
-          matchesFilter = type === "energie" || type === "energy";
-        } else {
-          matchesFilter = type === activeFilter.toLowerCase();
-        }
-      }
-      return matchesSearch && matchesFilter;
-    });
-  }
-
+  /**
+   * Parse a Pokémon PTCGO/PTCGL decklist by sending it to the backend.
+   *
+   * The server looks up cards by name and set code and returns an ordered
+   * list that mirrors the original decklist structure.  Returns `[]` on error
+   * so the caller can show a "no cards found" message.
+   *
+   * @param text - Raw decklist text from the clipboard.
+   */
   async function parseDeckList(text: string): Promise<PokemonCard[]> {
-    const cardPool: PokemonCard[] = [];
     try {
-      const parsedList = await get<{ content: PokemonCard[] }>(
+      const data = await get<{ content: PokemonCard[] }>(
         "/pokemon/cards/names",
-        {
-          decklist: text,
-        },
+        { decklist: text },
       );
-      cardPool.push(...parsedList.content);
+      return data.content;
     } catch (e) {
-      console.error("Failed to fetch cards:", e);
-    } finally {
-      loading.value = false;
+      console.error("Failed to parse Pokémon decklist:", e);
+      return [];
     }
-    return cardPool;
   }
 
-  async function saveDeck(
-    userId: string,
-    name: string,
-    cards: PokemonCard[],
-    cover?: string,
-  ): Promise<void> {
-    await post("/auth/pokemon/decks/create", {
-      UserId: userId,
-      Name: name,
-      CoverCard: cover,
-      Entries: cards.map((card) => ({ cardId: card.ID })),
-    });
-  }
-
-  async function updateDeck(
-    deckId: number,
-    name: string,
-    cards: PokemonCard[],
-    cover?: string,
-  ): Promise<void> {
-    await put(`/auth/pokemon/decks/${deckId}/update`, {
-      DeckId: deckId,
-      Name: name,
-      Entries: cards.map((card) => ({ cardId: card.ID })),
-      CoverCard: cover,
-    });
-  }
-
-  return {
-    allCards,
-    loading,
-    fetchCards,
-    filters,
-    getCardImage,
-    imageKey,
-    cardKey,
-    filterCards,
-    parseDeckList,
-    saveDeck,
-    updateDeck,
-  };
+  return { ...base, parseDeckList };
 }

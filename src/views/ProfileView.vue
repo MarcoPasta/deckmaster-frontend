@@ -1,50 +1,71 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
 import { computed, onMounted, ref } from "vue";
-import { useProfile } from "../composables/useProfile";
-import { useSnackbar } from "../composables/useSnackbar";
-import type { SocialLink } from "../interfaces/interfaces";
+import { useProfile } from "@/composables/useProfile";
+import { useSnackbar } from "@/composables/useSnackbar";
+import type { SocialLink } from "@/interfaces/interfaces";
 
 const { user } = useUser();
 const { fetchProfile, updateProfile, logPasswordChange } = useProfile();
 const { show: showSnackbar } = useSnackbar();
 
-// Profile fields
+// ── Read-only Clerk fields ─────────────────────────────────────────────────
+// Email and username are managed by Clerk and require account-level
+// verification to change.  We populate these refs for display only; they are
+// never written back to the backend through this view.
 const email = ref("");
 const username = ref("");
+
+/** Current profile image URL from Clerk.  Updated after a successful upload. */
 const profileImage = ref<string | null>(null);
 
+/**
+ * Appends Clerk image transformation parameters so the avatar is served at
+ * 160 × 160 px instead of the full-resolution original.
+ */
 function optimizedImageUrl(rawUrl: string | null | undefined): string | undefined {
   if (!rawUrl) return undefined;
   const separator = rawUrl.includes("?") ? "&" : "?";
   return `${rawUrl}${separator}width=160&height=160&fit=cover`;
 }
 
-// Social links
+// ── Social links ──────────────────────────────────────────────────────────
+/** The user's current social links, loaded from the backend on mount. */
 const socialLinks = ref<SocialLink[]>([]);
+/** Selected platform for the "add link" form. */
 const newPlatform = ref<"twitter" | "discord" | "youtube" | "custom">(
   "twitter",
 );
+/** URL entered in the "add link" form. */
 const newUrl = ref("");
+/** Optional label for custom-platform links. */
 const newLabel = ref("");
 
-// Password fields
+// ── Password change ───────────────────────────────────────────────────────
 const currentPassword = ref("");
 const newPassword = ref("");
 const confirmPassword = ref("");
+/** Toggle between password/text input type for each password field. */
 const showCurrentPw = ref(false);
 const showNewPw = ref(false);
 const showConfirmPw = ref(false);
 
-// UI state
+// ── UI loading / dialog state ─────────────────────────────────────────────
+/** True while the avatar upload is in progress. */
 const savingProfile = ref(false);
+/** True while a social-links save is in progress. */
 const savingSocial = ref(false);
+/** True while the password change request is in progress. */
 const savingPassword = ref(false);
+/** Template ref for the hidden file input, clicked programmatically. */
 const fileInput = ref<HTMLInputElement | null>(null);
+/** Controls the "confirm delete social link" dialog. */
 const deleteConfirmOpen = ref(false);
+/** Index of the social link the user has requested to delete; `null` when none pending. */
 const linkToDelete = ref<number | null>(null);
 
-// Computed
+// ── Computed ──────────────────────────────────────────────────────────────
+/** User's full name derived from Clerk, shown as read-only text. */
 const fullName = computed(() => {
   if (!user.value) return "";
   const first = user.value.firstName || "";
@@ -52,6 +73,10 @@ const fullName = computed(() => {
   return `${first} ${last}`.trim();
 });
 
+/**
+ * One- or two-letter initials shown as the avatar fallback when no image is
+ * set.  Derived from Clerk first/last name, then email initial, then "U".
+ */
 const displayInitials = computed(() => {
   if (user.value?.firstName && user.value?.lastName) {
     return (user.value.firstName[0] + user.value.lastName[0]).toUpperCase();
@@ -114,6 +139,16 @@ function removeImage() {
 // shown here read-only. Editable profile data is limited to the avatar,
 // social links and password.
 
+function extractErrorMessage(error: unknown, fallback: string): string {
+  const e = error as Record<string, unknown> | null;
+  const respData = (e?.response as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+  return (
+    (e?.errors as string[] | undefined)?.[0] ??
+    respData?.error as string ??
+    fallback
+  );
+}
+
 // Social links
 async function addSocialLink() {
   if (!newUrl.value) {
@@ -162,16 +197,9 @@ async function saveSocialLinks() {
     }
 
     showSnackbar("Social links updated", "success");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error saving social links:", error);
-
-    // Check if error response has validation errors
-    const errorMessage =
-      error?.response?.data?.errors?.join(", ") ||
-      error?.response?.data?.error ||
-      "Failed to save social links";
-
-    showSnackbar(errorMessage, "error");
+    showSnackbar(extractErrorMessage(error, "Failed to save social links"), "error");
   } finally {
     savingSocial.value = false;
   }
@@ -206,16 +234,9 @@ async function savePassword() {
     newPassword.value = "";
     confirmPassword.value = "";
     showSnackbar("Password updated successfully", "success");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating password:", error);
-
-    // Check if error response has validation errors
-    const errorMessage =
-      error?.errors?.[0]?.message ||
-      error?.response?.data?.error ||
-      "Failed to update password";
-
-    showSnackbar(errorMessage, "error");
+    showSnackbar(extractErrorMessage(error, "Failed to update password"), "error");
   } finally {
     savingPassword.value = false;
   }

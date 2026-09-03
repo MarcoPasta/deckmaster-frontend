@@ -1,90 +1,90 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import CardTooltip from "../components/CardTooltip.vue";
-import DeckPanel from "../components/DeckPanel.vue";
-import VirtualCardGrid from "../components/VirtualCardGrid.vue";
-import { useDigimonBuilder } from "../composables/digimon/useDigimonBuilder";
-import { useDragDivider } from "../composables/useDragDivider";
-import { useMobileInteractions } from "../composables/useMobileInteractions";
-import { useNarutoBuilder } from "../composables/naruto/useNarutoBuilder";
-import { usePokemonBuilder } from "../composables/pokemon/usePokemonBuilder";
-import { useSnackbar } from "../composables/useSnackbar";
-import { useTcgState } from "../composables/useTcgState";
-import type {
-  DigimonCard,
-  NarutoCard,
-  PokemonCard,
-} from "../interfaces/interfaces";
-
-type AnyCard = PokemonCard | NarutoCard | DigimonCard;
-
-const STORAGE_KEY = "builder-deck";
-const STORAGE_NAME_KEY = "builder-deck-name";
-const STORAGE_ID_KEY = "builder-deck-id";
-const STORAGE_COVER_KEY = "builder-deck-cover";
+import { computed, ref, watch } from "vue";
+import { useDisplay } from "vuetify";
+import CardTooltip from "@/components/CardTooltip.vue";
+import DeckPanel from "@/components/DeckPanel.vue";
+import VirtualCardGrid from "@/components/VirtualCardGrid.vue";
+import {
+  cardName,
+  isMissionCard as isMissionCardFor,
+  useTcgBuilder,
+  type AnyCard,
+} from "@/composables/tcg/adapters";
+import {
+  BUILDER_STORAGE,
+  clearBuilderHandoff,
+  readBuilderHandoff,
+} from "@/composables/tcg/builderHandoff";
+import { useDragDivider } from "@/composables/useDragDivider";
+import { useMobileInteractions } from "@/composables/useMobileInteractions";
+import { useSnackbar } from "@/composables/useSnackbar";
+import type { NarutoCard } from "@/interfaces/interfaces";
 
 const { user } = useUser();
 const { show: showSnackbar } = useSnackbar();
-const { selectedTcg } = useTcgState();
-const pokemon = usePokemonBuilder();
-const naruto = useNarutoBuilder();
-const digimon = useDigimonBuilder();
 
+/**
+ * Registry adapter for the currently active TCG.
+ * `builder` is a computed ref that switches between Pokémon, Naruto and
+ * Digimon adapters automatically whenever `selectedTcg` changes — views
+ * never reference a specific game composable directly.
+ */
+const { selectedTcg, builder } = useTcgBuilder();
+
+/** Template ref for the outer `.builder` container, used by `useDragDivider`. */
 const builderEl = ref<HTMLElement | null>(null);
+/** Percentage split between the deck panel and the card pool; draggable. */
 const { splitPercent, dragging, startDrag } = useDragDivider(builderEl);
 
-const filters = computed(() => {
-  if (selectedTcg.value === "naruto") return naruto.filters;
-  if (selectedTcg.value === "digimon") return digimon.filters;
-  return pokemon.filters;
-});
+/** Filter chip labels for the active game (e.g. ["All", "Pokemon", …]). */
+const filters = computed(() => builder.value.filters);
 
 function getCardImage(card: AnyCard): string {
-  if (selectedTcg.value === "naruto") return naruto.getCardImage(card as NarutoCard);
-  if (selectedTcg.value === "digimon") return digimon.getCardImage(card as DigimonCard);
-  return pokemon.getCardImage(card as PokemonCard);
+  return builder.value.getCardImage(card);
 }
 
 function cardKey(card: AnyCard): string {
-  if (selectedTcg.value === "naruto") return naruto.cardKey(card as NarutoCard);
-  if (selectedTcg.value === "digimon") return digimon.cardKey(card as DigimonCard);
-  return pokemon.cardKey(card as PokemonCard);
+  return builder.value.cardKey(card);
 }
 
-function cardName(card: AnyCard): string {
-  if ("Name" in card) return card.Name ?? "";
-  if ("name" in card) return card.name ?? "";
-  return "";
-}
-
+// ── Deck state ────────────────────────────────────────────────────────────
+// Populated from sessionStorage when the user arrives from DecksView (edit
+// flow).  Both refs are also persisted back to sessionStorage on every change
+// so a page refresh doesn't lose the work in progress.
+const { cards: _initCards, name: _initName } = readBuilderHandoff();
+/** Free-text search for the card pool search bar. */
 const searchQuery = ref("");
+/** The currently active filter chip value (lowercased), e.g. `"all"`, `"pokemon"`. */
 const activeFilter = ref("all");
-const deckName = ref(sessionStorage.getItem(STORAGE_NAME_KEY) || "");
+/** Name the user has typed for the deck being built. */
+const deckName = ref(_initName);
+/** True while a save/update deck request is in flight. */
 const saving = ref(false);
-const chosenCards = ref<AnyCard[]>(JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "[]"));
+/** The cards the user has added to the current deck (one entry per physical copy). */
+const chosenCards = ref<AnyCard[]>(_initCards as AnyCard[]);
 
+// Reset the deck and filters when the user switches to a different TCG.
 watch(selectedTcg, () => { chosenCards.value = []; activeFilter.value = "all"; searchQuery.value = ""; });
-watch(selectedTcg, (tcg) => {
-  if (tcg === "naruto") naruto.fetchCards();
-  else if (tcg === "digimon") digimon.fetchCards();
-  else pokemon.fetchCards();
-}, { immediate: true });
+// Fetch the active game's card catalogue when the TCG changes (immediate so
+// cards are loaded on first render too).
+watch(selectedTcg, () => { builder.value.fetchCards(); }, { immediate: true });
 
-const isLoading = computed(() => {
-  if (selectedTcg.value === "naruto") return naruto.loading.value;
-  if (selectedTcg.value === "digimon") return digimon.loading.value;
-  return pokemon.loading.value;
-});
+/** True while the initial card catalogue fetch is running. */
+const isLoading = computed(() => builder.value.loading.value);
 
-watch(chosenCards, (val) => sessionStorage.setItem(STORAGE_KEY, JSON.stringify(val)), { deep: true });
-watch(deckName, (val) => sessionStorage.setItem(STORAGE_NAME_KEY, val));
+// Persist deck state to sessionStorage so it survives navigation / refresh.
+watch(chosenCards, (val) => sessionStorage.setItem(BUILDER_STORAGE.DECK, JSON.stringify(val)), { deep: true });
+watch(deckName, (val) => sessionStorage.setItem(BUILDER_STORAGE.NAME, val));
 
-const allFilteredCards = computed(() => {
-  if (selectedTcg.value === "naruto") return naruto.filterCards(naruto.allCards.value, searchQuery.value, activeFilter.value);
-  if (selectedTcg.value === "digimon") return digimon.filterCards(digimon.allCards.value, searchQuery.value, activeFilter.value);
-  return pokemon.filterCards(pokemon.allCards.value, searchQuery.value, activeFilter.value);
-});
+/**
+ * All cards matching the current search + filter, split into two lists:
+ * - `filteredCards`        — regular cards (main grid).
+ * - `filteredMissionCards` — Naruto landscape mission cards (separate footer row).
+ */
+const allFilteredCards = computed(() =>
+  builder.value.filterCards(builder.value.allCards.value, searchQuery.value, activeFilter.value),
+);
 
 const filteredMissionCards = computed(() =>
   selectedTcg.value === "naruto"
@@ -98,10 +98,11 @@ const filteredCards = computed(() =>
     : allFilteredCards.value
 );
 
+/** A card + its deduplicated count, used to render stacked card visuals. */
 interface CardGroup { card: AnyCard; key: string; count: number; }
 
 function isMissionCard(card: AnyCard): boolean {
-  return selectedTcg.value === "naruto" && (card as NarutoCard).group?.toLowerCase() === "mission";
+  return isMissionCardFor(card, selectedTcg.value);
 }
 
 const groupedChosenCards = computed<CardGroup[]>(() => {
@@ -128,8 +129,14 @@ const groupedMissionCards = computed<CardGroup[]>(() => {
   return [...map.values()];
 });
 
+/**
+ * Key of the card currently animating a "bounce-in" after being added.
+ * Cleared automatically after 350 ms so only the most recent addition plays
+ * the animation (prevents stacking multiple bounces simultaneously).
+ */
 const bouncingCard = ref<string | null>(null);
 
+/** Add one copy of `card` to the deck and play the bounce animation. */
 function addCard(card: AnyCard) {
   chosenCards.value.push(card);
   const key = cardKey(card);
@@ -147,35 +154,22 @@ function removeCard(card: AnyCard) {
 function clearDeck() {
   chosenCards.value = [];
   deckName.value = "";
-  sessionStorage.removeItem(STORAGE_KEY);
-  sessionStorage.removeItem(STORAGE_ID_KEY);
-  sessionStorage.removeItem(STORAGE_NAME_KEY);
-  sessionStorage.removeItem(STORAGE_COVER_KEY);
+  clearBuilderHandoff();
 }
 
 async function saveDeck() {
   if (!deckName.value.trim() || chosenCards.value.length === 0) return;
   saving.value = true;
   try {
-    const id = sessionStorage.getItem(STORAGE_ID_KEY);
-    const cover = sessionStorage.getItem(STORAGE_COVER_KEY)
+    const id = sessionStorage.getItem(BUILDER_STORAGE.ID);
+    const cover = sessionStorage.getItem(BUILDER_STORAGE.COVER)
       || String(chosenCards.value[0]?.ID);
-    if (selectedTcg.value === "naruto") {
-      if (id !== null) await naruto.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as NarutoCard[], cover);
-      else await naruto.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as NarutoCard[], cover);
-    } else if (selectedTcg.value === "digimon") {
-      if (id !== null) await digimon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as DigimonCard[], cover);
-      else await digimon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as DigimonCard[], cover);
-    } else {
-      if (id !== null) await pokemon.updateDeck(Number(id), deckName.value.trim(), chosenCards.value as PokemonCard[], cover);
-      else await pokemon.saveDeck(user.value!.id, deckName.value.trim(), chosenCards.value as PokemonCard[], cover);
-    }
+    const name = deckName.value.trim();
+    if (id !== null) await builder.value.updateDeck(Number(id), name, chosenCards.value, cover);
+    else await builder.value.saveDeck(user.value!.id, name, chosenCards.value, cover);
     chosenCards.value = [];
     deckName.value = "";
-    sessionStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(STORAGE_NAME_KEY);
-    sessionStorage.removeItem(STORAGE_ID_KEY);
-    sessionStorage.removeItem(STORAGE_COVER_KEY);
+    clearBuilderHandoff();
     showSnackbar("Deck saved", "success");
   } catch (e) {
     console.error("Failed to save deck:", e);
@@ -188,10 +182,7 @@ async function saveDeck() {
 async function importDeck() {
   try {
     const text = await navigator.clipboard.readText();
-    let imported: AnyCard[];
-    if (selectedTcg.value === "naruto") imported = await naruto.parseDeckList(text);
-    else if (selectedTcg.value === "digimon") imported = digimon.parseDeckList(text, digimon.allCards.value);
-    else imported = await pokemon.parseDeckList(text);
+    const imported = await builder.value.parseDeckList(text, builder.value.allCards.value);
     if (imported.length > 0) {
       chosenCards.value = imported;
       showSnackbar(`Imported ${imported.length} cards`, "success");
@@ -204,9 +195,12 @@ async function importDeck() {
   }
 }
 
-// Tooltip
+// ── Tooltip (desktop card preview) ───────────────────────────────────────
+/** Image URL shown in the floating card tooltip. */
 const tooltipImage = ref("");
+/** Pixel position of the tooltip, offset 16 px from the cursor. */
 const tooltipPos = ref({ x: 0, y: 0 });
+/** Whether the tooltip is currently visible. */
 const tooltipVisible = ref(false);
 
 function showTooltip(card: AnyCard, event: MouseEvent) {
@@ -217,23 +211,30 @@ function showTooltip(card: AnyCard, event: MouseEvent) {
 function moveTooltip(event: MouseEvent) { tooltipPos.value = { x: event.clientX + 16, y: event.clientY + 16 }; }
 function hideTooltip() { tooltipVisible.value = false; }
 
-// Responsive
-const isNarrow = ref(window.innerWidth < 1366);
-const isMobile = ref(window.innerWidth <= 480);
-
-function onResize() { isNarrow.value = window.innerWidth < 1366; isMobile.value = window.innerWidth <= 480; }
-onMounted(() => window.addEventListener("resize", onResize));
-onUnmounted(() => window.removeEventListener("resize", onResize));
+// Responsive – use Vuetify's reactive display so no manual resize listeners needed.
+// smAndDown  = ≤960px (Vuetify md breakpoint), xs = ≤600px (mobile).
+const { smAndDown, xs } = useDisplay();
+const isNarrow = smAndDown;   // deck panel switches to compact grid
+const isMobile = xs;          // full mobile drawer experience (≤480px)
 
 // Mobile interactions
 const { mobileThumbnail, onTouchStart, onTouchMove, onMobileTap, onMobileOverlayTap } =
   useMobileInteractions(isMobile, cardKey as (c: unknown) => string, getCardImage as (c: unknown) => string, addCard as (c: unknown) => void);
 
-// Mobile drawer
+// ── Mobile drawer (deck panel slides up from the bottom) ─────────────────
+/** Height of the collapsed drawer handle bar in pixels. */
 const DRAWER_HANDLE_HEIGHT = 44;
+/**
+ * How many pixels the drawer panel is translated up from the bottom edge.
+ * `DRAWER_HANDLE_HEIGHT` = fully collapsed (only the handle is visible).
+ * `getMaxDrawerOffset()` = fully open (70 % of the container height).
+ */
 const drawerOffset = ref(DRAWER_HANDLE_HEIGHT);
+/** True when the drawer is open enough to show its content (> handle + 20 px). */
 const isDrawerOpen = computed(() => drawerOffset.value > DRAWER_HANDLE_HEIGHT + 20);
+/** Y-coordinate of the touchstart event, used to calculate drag distance. */
 let drawerTouchStartY = 0;
+/** `drawerOffset` value at the start of a drag, used as the drag base. */
 let drawerStartOffset = 0;
 function getMaxDrawerOffset() {
   if (!builderEl.value) return DRAWER_HANDLE_HEIGHT;

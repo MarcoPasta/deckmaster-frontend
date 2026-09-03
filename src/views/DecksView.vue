@@ -1,86 +1,73 @@
 <script setup lang="ts">
 import { useUser } from "@clerk/vue";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, ref } from "vue";
+import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
-import { useDigimonDecks } from "../composables/digimon/useDigimonDecks";
-import { useNarutoDecks } from "../composables/naruto/useNarutoDecks";
-import { usePokemonDecks } from "../composables/pokemon/usePokemonDecks";
-import { useApi } from "../composables/useApi";
-import { useSnackbar } from "../composables/useSnackbar";
-import { useTcgState } from "../composables/useTcgState";
-import type {
-  DigimonCard,
-  DigimonDecks,
-  NarutoCard,
-  NarutoDecks,
-  PokemonCard,
-  PokemonDecks,
-} from "../interfaces/interfaces";
-
-type AnyDeck = PokemonDecks | NarutoDecks | DigimonDecks;
-type AnyCard = PokemonCard | NarutoCard | DigimonCard;
+import { useApi } from "@/composables/useApi";
+import { useSnackbar } from "@/composables/useSnackbar";
+import {
+  cardName,
+  isMissionCard as isMissionCardFor,
+  useTcgDecks,
+  type AnyCard,
+  type AnyDeck,
+} from "@/composables/tcg/adapters";
+import { writeBuilderHandoff } from "@/composables/tcg/builderHandoff";
+import type { NarutoCard, PokemonCard } from "@/interfaces/interfaces";
 
 const router = useRouter();
 const { user } = useUser();
-const { selectedTcg } = useTcgState();
+/** `getBlob` used for the deck-image download; `post` used for Cardmarket export. */
 const { getBlob, post } = useApi();
 const { show: showSnackbar } = useSnackbar();
 
-const pokemonDecks = usePokemonDecks(() => user.value?.id);
-const narutoDecks = useNarutoDecks(() => user.value?.id);
-const digimonDecks = useDigimonDecks(() => user.value?.id);
+/**
+ * Registry adapter for the active TCG's decks.
+ * Fetches only the selected game's decks (not all three) — see `useTcgDecks`.
+ */
+const { selectedTcg, decks: decksAdapter } = useTcgDecks(() => user.value?.id);
 
-const decks = computed<AnyDeck[]>(() => {
-  if (selectedTcg.value === "naruto") return narutoDecks.decks.value;
-  if (selectedTcg.value === "digimon") return digimonDecks.decks.value;
-  return pokemonDecks.decks.value;
-});
+/** Reactive flat list of the user's decks for the active TCG. */
+const decks = computed<AnyDeck[]>(() => decksAdapter.value.decks.value);
 
+/** Returns the presigned thumbnail URL for a deck card. */
 function getPreviewImage(deck: AnyDeck): string {
-  if (selectedTcg.value === "naruto")
-    return narutoDecks.getPreviewImage(deck as NarutoDecks);
-  if (selectedTcg.value === "digimon")
-    return digimonDecks.getPreviewImage(deck as DigimonDecks);
-  return pokemonDecks.getPreviewImage(deck as PokemonDecks);
+  return decksAdapter.value.getPreviewImage(deck);
 }
 
+/** Returns the presigned image URL for a card inside a deck. */
 function getCardImage(card: AnyCard): string {
-  if (selectedTcg.value === "naruto")
-    return narutoDecks.getCardImage(card as NarutoCard);
-  if (selectedTcg.value === "digimon")
-    return digimonDecks.getCardImage(card as DigimonCard);
-  return pokemonDecks.getCardImage(card as PokemonCard);
+  return decksAdapter.value.getCardImage(card);
 }
 
+/** Serialise the deck into the game-specific clipboard export format. */
 function buildDeckText(deck: AnyDeck): string {
-  if (selectedTcg.value === "naruto")
-    return narutoDecks.buildDeckText(deck as NarutoDecks);
-  if (selectedTcg.value === "digimon")
-    return digimonDecks.buildDeckText(deck as DigimonDecks);
-  return pokemonDecks.buildDeckText(deck as PokemonDecks);
+  return decksAdapter.value.buildDeckText(deck);
 }
 
+/** Optimistically delete the deck locally and then remove it on the server. */
 async function deleteDeckLocal(id: number) {
-  if (selectedTcg.value === "naruto") return narutoDecks.deleteDeck(id);
-  if (selectedTcg.value === "digimon") return digimonDecks.deleteDeck(id);
-  return pokemonDecks.deleteDeck(id);
+  return decksAdapter.value.deleteDeck(id);
 }
 
+/** PATCH the deck's cover card on the server. */
 async function updateCoverCardLocal(deckId: number, cardId: number) {
-  if (selectedTcg.value === "naruto")
-    return narutoDecks.updateCoverCard(deckId, cardId);
-  if (selectedTcg.value === "digimon")
-    return digimonDecks.updateCoverCard(deckId, cardId);
-  return pokemonDecks.updateCoverCard(deckId, cardId);
+  return decksAdapter.value.updateCoverCard(deckId, cardId);
 }
 
+/**
+ * Returns the number of cards to display in the deck list card.
+ * Naruto decks exclude mission cards from the count since they are in a
+ * separate section and don't count toward the main deck size.
+ */
 function deckCardCount(deck: AnyDeck): number {
   if (selectedTcg.value !== "naruto") return deck.entries?.length ?? 0;
   return (deck.entries ?? []).filter(
-    (e) => (e.card as NarutoCard).group?.toLowerCase() !== "mission",
+    (e) => !isMissionCardFor(e.card as AnyCard, selectedTcg.value),
   ).length;
 }
 
+/** Format a date as `DD.MM.YYYY` for the deck creation date display. */
 function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -89,20 +76,25 @@ function formatDate(date: Date | string): string {
   });
 }
 
+// ── Dialog state ──────────────────────────────────────────────────────────
+
+/** Controls visibility of the deck actions dialog. */
 const dialogOpen = ref(false);
+
+/** The deck the user has clicked on and is currently viewing in the dialog. */
 const selectedDeck = ref<AnyDeck | null>(null);
+
+/**
+ * When `true` the deck card grid is in cover-selection mode: clicking a card
+ * sets it as the deck thumbnail instead of navigating or selecting normally.
+ */
 const choosingCover = ref(false);
 
-const isMobile = ref(window.innerWidth <= 480);
-function onResize() { isMobile.value = window.innerWidth <= 480; }
-onMounted(() => window.addEventListener("resize", onResize));
-onUnmounted(() => window.removeEventListener("resize", onResize));
+/** `true` on xs-width screens (≤600 px). */
+const { xs: isMobile } = useDisplay();
 
 function isNarutoMission(card: AnyCard): boolean {
-  return (
-    selectedTcg.value === "naruto" &&
-    (card as NarutoCard).group?.toLowerCase() === "mission"
-  );
+  return isMissionCardFor(card, selectedTcg.value);
 }
 
 const groupedEntries = computed(() => {
@@ -118,7 +110,7 @@ const groupedEntries = computed(() => {
     }
   }
   const typeOrder = (card: AnyCard): number => {
-    const t = ((card as any).CardType ?? "").toLowerCase();
+    const t = ((card as PokemonCard).CardType ?? "").toLowerCase();
     if (t === "pokemon" || t === "pokémon") return 0;
     if (t === "trainer") return 1;
     if (t === "energy" || t === "energie") return 2;
@@ -160,17 +152,19 @@ function selectCoverCard(card: AnyCard) {
 
 function editDeck() {
   if (!selectedDeck.value) return;
-  sessionStorage.setItem(
-    "builder-deck",
-    JSON.stringify(selectedDeck.value.entries.map((e) => e.card)),
-  );
-  sessionStorage.setItem("builder-deck-name", selectedDeck.value.name);
-  sessionStorage.setItem("builder-deck-id", String(selectedDeck.value.ID));
-  sessionStorage.setItem("builder-deck-cover", selectedDeck.value.cover ?? "");
+  writeBuilderHandoff({
+    cards: selectedDeck.value.entries.map((e) => e.card),
+    name: selectedDeck.value.name,
+    deckId: String(selectedDeck.value.ID),
+    cover: selectedDeck.value.cover ?? "",
+  });
   dialogOpen.value = false;
   router.push({ name: "Builder", params: { deckId: selectedDeck.value.ID } });
 }
 
+// ── Share & export ────────────────────────────────────────────────────────
+
+/** Controls the share dropdown menu (Copy / Image / Cardmarket). */
 const shareMenuOpen = ref(false);
 
 async function copyAsText() {
@@ -186,7 +180,9 @@ async function copyAsText() {
   shareMenuOpen.value = false;
 }
 
+/** Controls the Cardmarket decklist dialog (separate from the share menu). */
 const cardmarketOpen = ref(false);
+/** The Cardmarket-formatted decklist text returned by the backend. */
 const cardmarketText = ref("");
 
 async function copyForCardmarket() {
@@ -242,8 +238,13 @@ async function copyAsImage() {
   shareMenuOpen.value = false;
 }
 
+// ── Testhand simulator ────────────────────────────────────────────────────
+
+/** Controls the test-hand dialog visibility. */
 const testhandOpen = ref(false);
+/** The 5–7 randomly drawn cards shown in the test-hand grid. */
 const testhandCards = ref<AnyCard[]>([]);
+/** Cards pre-set aside for the "when keeping" section (Naruto only). */
 const testhandKeepingCards = ref<AnyCard[]>([]);
 
 function drawTesthand() {
@@ -338,7 +339,7 @@ function deleteDeck() {
                 v-if="getCardImage(group.card)"
                 :src="getCardImage(group.card)"
                 :alt="
-                  (group.card as any).Name ?? (group.card as any).name ?? ''
+                  cardName(group.card)
                 "
                 :class="[
                   'dialog-mission-img',
@@ -361,7 +362,7 @@ function deleteDeck() {
             <img
               v-if="getCardImage(group.card)"
               :src="getCardImage(group.card)"
-              :alt="(group.card as any).Name ?? (group.card as any).name ?? ''"
+              :alt="cardName(group.card)"
               :class="['dialog-card-img', { 'cover-candidate': choosingCover }]"
             />
             <span v-if="group.count > 1" class="dialog-card-count">
@@ -460,7 +461,7 @@ function deleteDeck() {
             <img
               v-if="getCardImage(card)"
               :src="getCardImage(card)"
-              :alt="(card as any).Name ?? (card as any).name ?? ''"
+              :alt="cardName(card)"
               class="dialog-card-img"
             />
           </div>
@@ -480,7 +481,7 @@ function deleteDeck() {
               <img
                 v-if="getCardImage(card)"
                 :src="getCardImage(card)"
-                :alt="(card as any).Name ?? (card as any).name ?? ''"
+                :alt="cardName(card)"
                 class="dialog-card-img"
               />
             </div>
